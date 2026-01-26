@@ -208,7 +208,7 @@ export function LabelManager() {
                     </p>
                     <p className="text-xs text-gray-500">페이지 {label.page_number}</p>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
