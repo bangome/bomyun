@@ -78,13 +78,6 @@ export function Header() {
           {!isMobile && <span className="text-sm">로컬 파일</span>}
         </button>
 
-        {/* 모바일: 페이지 네비게이션 */}
-        {document && isMobile && (
-          <>
-            <div className="w-px h-6 bg-gray-200" />
-            <MobilePageNavigation />
-          </>
-        )}
 
         {/* 현재 문서 이름 - 데스크톱 */}
         {currentDocumentTitle && !isMobile && (
@@ -183,6 +176,13 @@ export function Header() {
           )}
         </div>
       </div>
+
+      {/* 모바일: 페이지 네비게이션 (두 번째 줄) */}
+      {document && isMobile && (
+        <div className="flex items-center justify-center mt-2 pt-2 border-t border-gray-100">
+          <MobilePageNavigation />
+        </div>
+      )}
     </header>
   );
 }
