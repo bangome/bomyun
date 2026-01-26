@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { MIN_SCALE, MAX_SCALE } from '../types/pdf.types';
 
 interface UsePinchZoomOptions {
@@ -14,9 +14,14 @@ export function usePinchZoom({
   minScale = MIN_SCALE,
   maxScale = MAX_SCALE,
 }: UsePinchZoomOptions) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const initialDistanceRef = useRef<number | null>(null);
   const initialScaleRef = useRef<number>(currentScale);
+
+  // callback ref를 반환
+  const pinchZoomRef = useCallback((node: HTMLDivElement | null) => {
+    setContainer(node);
+  }, []);
 
   const getDistance = useCallback((touches: TouchList): number => {
     if (touches.length < 2) return 0;
@@ -63,7 +68,6 @@ export function usePinchZoom({
   }, []);
 
   useEffect(() => {
-    const container = containerRef.current;
     if (!container) return;
 
     // passive: false로 설정하여 preventDefault 호출 가능
@@ -78,7 +82,7 @@ export function usePinchZoom({
       container.removeEventListener('touchend', handleTouchEnd);
       container.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [container, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
-  return containerRef;
+  return pinchZoomRef;
 }

@@ -16,17 +16,17 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
   const pagesContainerRef = useRef<HTMLDivElement>(null);
   const [pageLoaded, setPageLoaded] = useState(false);
 
-  // 핀치 줌
+  // 핀치 줌 (callback ref 반환)
   const pinchZoomRef = usePinchZoom({
     currentScale: scale,
     onZoomChange: setScale,
   });
 
-  // ref 병합
+  // ref 병합: pagesContainerRef와 pinchZoomRef를 모두 연결
   const setRefs = useCallback(
     (element: HTMLDivElement | null) => {
-      (pagesContainerRef as any).current = element;
-      (pinchZoomRef as any).current = element;
+      pagesContainerRef.current = element;
+      pinchZoomRef(element); // callback ref 호출
     },
     [pinchZoomRef]
   );
@@ -177,7 +177,7 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
     <div ref={containerRef} className={`h-full bg-gray-200 ${className}`}>
       <div
         ref={setRefs}
-        className={`h-full overflow-auto p-4 ${
+        className={`pdf-viewer-container h-full overflow-auto p-4 ${
           viewMode === 'continuous' ? 'space-y-4' : 'flex items-start justify-center'
         }`}
       >
