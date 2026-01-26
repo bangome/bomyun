@@ -106,7 +106,7 @@ export function BookmarkList() {
                     e.stopPropagation();
                     handleDeleteBookmark(bookmark.id);
                   }}
-                  className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="p-1 hover:bg-red-100 rounded"
                   title="삭제"
                 >
                   <Trash2 className="w-4 h-4 text-red-500" />
