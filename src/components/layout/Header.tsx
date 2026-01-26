@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
-import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown } from 'lucide-react';
+import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check } from 'lucide-react';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useAuth } from '../../hooks/useAuth';
+import { useComplex } from '../../hooks/useComplex';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { TextSearch } from '../search/TextSearch';
 import { ZoomControls } from '../pdf/controls/ZoomControls';
@@ -16,9 +17,19 @@ export function Header() {
   const { loadFromFile, document } = usePDF();
   const { isMobile, isTablet } = useResponsive();
   const { user, signOut } = useAuth();
+  const { complex, isAdmin } = useComplex();
   const { toggleLibrary } = useDocumentLibrary();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const handleCopyInviteCode = async () => {
+    if (complex?.invite_code) {
+      await navigator.clipboard.writeText(complex.invite_code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -153,12 +164,45 @@ export function Header() {
                 className="fixed inset-0 z-10"
                 onClick={() => setIsUserMenuOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                {/* 사용자 정보 */}
                 <div className="px-4 py-3 border-b">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {user?.email}
                   </p>
                 </div>
+
+                {/* 단지 정보 */}
+                {complex && (
+                  <div className="px-4 py-3 border-b bg-gray-50">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                      <Building2 className="w-4 h-4" />
+                      <span className="font-medium">{complex.name}</span>
+                      {isAdmin && (
+                        <span className="text-xs bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded">
+                          관리자
+                        </span>
+                      )}
+                    </div>
+                    {isAdmin && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500 mb-1">초대 코드</p>
+                        <button
+                          onClick={handleCopyInviteCode}
+                          className="flex items-center gap-2 px-2 py-1 bg-white border rounded text-sm font-mono hover:bg-gray-50"
+                        >
+                          <span>{complex.invite_code}</span>
+                          {copiedCode ? (
+                            <Check className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="py-1">
                   <button
                     onClick={() => {

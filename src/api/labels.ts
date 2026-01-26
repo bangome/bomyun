@@ -1,6 +1,20 @@
 import { supabase } from '../lib/supabase';
 import type { Label, GlobalLabelSearchResult } from '../types/database.types';
 
+// 사용자의 complex_id 가져오기
+async function getUserComplexId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('complex_id')
+    .eq('id', user.id)
+    .single();
+
+  return data?.complex_id || null;
+}
+
 export async function getLabels(documentId: string): Promise<Label[]> {
   const { data, error } = await supabase
     .from('labels')
@@ -32,14 +46,18 @@ export async function createLabel(
   text: string,
   color: string = '#3B82F6'
 ): Promise<Label> {
-  // 현재 사용자 ID 가져오기
+  // 현재 사용자 정보 가져오기
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('인증이 필요합니다.');
+
+  const complexId = await getUserComplexId();
+  if (!complexId) throw new Error('단지에 가입되어 있지 않습니다.');
 
   const { data, error } = await supabase
     .from('labels')
     .insert({
       user_id: user.id,
+      complex_id: complexId,
       document_id: documentId,
       page_number: pageNumber,
       text,

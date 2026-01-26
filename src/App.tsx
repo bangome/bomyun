@@ -4,8 +4,11 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { ComplexSetupPage } from './pages/ComplexSetupPage';
 import { AppLayout } from './components/layout/AppLayout';
 import { PDFViewer } from './components/pdf/PDFViewer';
+import { useComplex } from './hooks/useComplex';
+import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +20,21 @@ const queryClient = new QueryClient({
 });
 
 function MainApp() {
+  const { hasComplex, isLoading } = useComplex();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  // 단지가 없으면 단지 설정 페이지로
+  if (!hasComplex) {
+    return <ComplexSetupPage />;
+  }
+
   return (
     <AppLayout>
       <PDFViewer className="h-full" />

@@ -1,10 +1,58 @@
 export interface Database {
   public: {
     Tables: {
+      complexes: {
+        Row: {
+          id: string;
+          name: string;
+          invite_code: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          invite_code: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          invite_code?: string;
+          updated_at?: string;
+        };
+      };
+      user_profiles: {
+        Row: {
+          id: string;
+          complex_id: string | null;
+          display_name: string | null;
+          role: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          complex_id?: string | null;
+          display_name?: string | null;
+          role?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          complex_id?: string | null;
+          display_name?: string | null;
+          role?: string;
+          updated_at?: string;
+        };
+      };
       documents: {
         Row: {
           id: string;
           user_id: string;
+          complex_id: string | null;
           title: string;
           file_path: string;
           file_size: number | null;
@@ -16,6 +64,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          complex_id?: string | null;
           title: string;
           file_path: string;
           file_size?: number | null;
@@ -27,6 +76,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          complex_id?: string | null;
           title?: string;
           file_path?: string;
           file_size?: number | null;
@@ -39,6 +89,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          complex_id: string | null;
           document_id: string;
           page_number: number;
           text: string;
@@ -49,6 +100,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          complex_id?: string | null;
           document_id: string;
           page_number: number;
           text: string;
@@ -59,6 +111,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          complex_id?: string | null;
           document_id?: string;
           page_number?: number;
           text?: string;
@@ -70,6 +123,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          complex_id: string | null;
           document_id: string;
           page_number: number;
           title: string | null;
@@ -79,6 +133,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          complex_id?: string | null;
           document_id: string;
           page_number: number;
           title?: string | null;
@@ -88,6 +143,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          complex_id?: string | null;
           document_id?: string;
           page_number?: number;
           title?: string | null;
@@ -98,6 +154,8 @@ export interface Database {
   };
 }
 
+export type Complex = Database['public']['Tables']['complexes']['Row'];
+export type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
 export type Document = Database['public']['Tables']['documents']['Row'];
 export type Label = Database['public']['Tables']['labels']['Row'];
 export type Bookmark = Database['public']['Tables']['bookmarks']['Row'];

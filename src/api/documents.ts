@@ -1,12 +1,26 @@
 import { supabase } from '../lib/supabase';
 import type { Document } from '../types/database.types';
 
+// 사용자의 complex_id 가져오기
+async function getUserComplexId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('complex_id')
+    .eq('id', user.id)
+    .single();
+
+  return data?.complex_id || null;
+}
+
 export async function getDocuments(): Promise<Document[]> {
-  // RLS가 자동으로 현재 사용자 문서만 반환
+  // RLS가 자동으로 같은 단지 문서만 반환
   const { data, error } = await supabase
     .from('documents')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('updated_at', { ascending: false });
 
   if (error) throw error;
   return data || [];
@@ -27,14 +41,18 @@ export async function createDocument(
   title: string,
   file: File
 ): Promise<Document> {
-  // 현재 사용자 ID 가져오기
+  // 현재 사용자 정보 가져오기
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('인증이 필요합니다.');
 
-  // 1. Storage에 파일 업로드 (사용자 ID로 폴더 구분)
+  // 단지 ID 가져오기
+  const complexId = await getUserComplexId();
+  if (!complexId) throw new Error('단지에 가입되어 있지 않습니다.');
+
+  // 1. Storage에 파일 업로드 (단지 ID로 폴더 구분)
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}.${fileExt}`;
-  const filePath = `${user.id}/${fileName}`;
+  const filePath = `${complexId}/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
     .from('pdfs')
@@ -42,11 +60,12 @@ export async function createDocument(
 
   if (uploadError) throw uploadError;
 
-  // 2. documents 테이블에 레코드 생성 (user_id 포함)
+  // 2. documents 테이블에 레코드 생성 (complex_id 포함)
   const { data, error } = await supabase
     .from('documents')
     .insert({
       user_id: user.id,
+      complex_id: complexId,
       title,
       file_path: filePath,
       file_size: file.size,

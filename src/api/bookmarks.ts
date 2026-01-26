@@ -1,6 +1,20 @@
 import { supabase } from '../lib/supabase';
 import type { Bookmark } from '../types/database.types';
 
+// 사용자의 complex_id 가져오기
+async function getUserComplexId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('complex_id')
+    .eq('id', user.id)
+    .single();
+
+  return data?.complex_id || null;
+}
+
 export async function getBookmarks(documentId: string): Promise<Bookmark[]> {
   const { data, error } = await supabase
     .from('bookmarks')
@@ -17,9 +31,12 @@ export async function createBookmark(
   pageNumber: number,
   title?: string
 ): Promise<Bookmark> {
-  // 현재 사용자 ID 가져오기
+  // 현재 사용자 정보 가져오기
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('인증이 필요합니다.');
+
+  const complexId = await getUserComplexId();
+  if (!complexId) throw new Error('단지에 가입되어 있지 않습니다.');
 
   // 현재 최대 sort_order 조회
   const { data: existing } = await supabase
@@ -35,6 +52,7 @@ export async function createBookmark(
     .from('bookmarks')
     .insert({
       user_id: user.id,
+      complex_id: complexId,
       document_id: documentId,
       page_number: pageNumber,
       title,
