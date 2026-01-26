@@ -44,7 +44,10 @@ DROP POLICY IF EXISTS "Users own bookmarks" ON bookmarks;
 
 -- 7. 단지 기반 RLS 정책 생성
 
--- complexes: 본인이 속한 단지만 조회 가능
+-- complexes: 누구나 생성 가능, 본인이 속한 단지만 조회 가능
+CREATE POLICY "Anyone can create complex" ON complexes
+  FOR INSERT WITH CHECK (true);
+
 CREATE POLICY "Users can view their complex" ON complexes
   FOR SELECT USING (
     id IN (SELECT complex_id FROM user_profiles WHERE id = auth.uid())
