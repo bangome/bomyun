@@ -105,11 +105,15 @@
 }
 
 /* 기본 body 스타일 */
-body {
+html, body {
   margin: 0;
   background-color: #f9fafb;
   color: #111827;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* 브라우저 기본 핀치 줌 비활성화 */
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 /* 모바일 핀치 줌을 위한 PDF 뷰어 영역 설정 */
