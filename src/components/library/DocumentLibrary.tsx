@@ -4,7 +4,7 @@ import { useStore } from '../../store';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { usePDF } from '../../hooks/usePDF';
 import { DocumentCard } from './DocumentCard';
-import { updateDocumentPageCount } from '../../api/documents';
+import { updateDocumentPageCount, updateDocumentLastOpened } from '../../api/documents';
 import type { Document } from '../../types/database.types';
 
 export function DocumentLibrary() {
@@ -44,6 +44,9 @@ export function DocumentLibrary() {
 
   const handleOpenDocument = async (doc: Document) => {
     try {
+      // 최근 연 시간 업데이트
+      await updateDocumentLastOpened(doc.id);
+
       const url = await getDocUrl(doc.file_path);
       await loadDocument(url, doc.id);
       setCurrentDocumentTitle(doc.title);

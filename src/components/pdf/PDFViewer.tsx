@@ -3,6 +3,7 @@ import { usePDF } from '../../hooks/usePDF';
 import { useStore } from '../../store';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { PDFPage } from './PDFPage';
+import { WelcomeScreen } from './WelcomeScreen';
 import { Loader2 } from 'lucide-react';
 
 interface PDFViewerProps {
@@ -163,14 +164,7 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
   }
 
   if (!document) {
-    return (
-      <div className={`flex items-center justify-center h-full bg-gray-100 ${className}`}>
-        <div className="text-gray-500 text-center">
-          <p className="text-lg mb-2">PDF 파일을 선택해주세요</p>
-          <p className="text-sm">파일을 업로드하거나 URL을 입력하세요</p>
-        </div>
-      </div>
-    );
+    return <WelcomeScreen className={className} />;
   }
 
   return (

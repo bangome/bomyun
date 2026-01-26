@@ -110,3 +110,12 @@ export async function updateDocumentRotation(
 
   if (error) throw error;
 }
+
+export async function updateDocumentLastOpened(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('documents')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) throw error;
+}
