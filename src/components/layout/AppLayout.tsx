@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { useResponsive } from '../../hooks/useResponsive';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { MobileMenu } from './MobileMenu';
 import { DocumentLibrary } from '../library/DocumentLibrary';
 
 interface AppLayoutProps {
@@ -23,13 +22,10 @@ export function AppLayout({ children }: AppLayoutProps) {
         {!isMobile && <Sidebar />}
 
         {/* PDF 뷰어 영역 */}
-        <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-16' : ''}`}>
+        <main className="flex-1 overflow-hidden">
           {children}
         </main>
       </div>
-
-      {/* 모바일 하단 메뉴 */}
-      {isMobile && <MobileMenu />}
 
       {/* 모바일 사이드바 (오버레이) */}
       {isMobile && <Sidebar />}

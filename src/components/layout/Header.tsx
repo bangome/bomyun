@@ -8,6 +8,8 @@ import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { TextSearch } from '../search/TextSearch';
 import { ZoomControls } from '../pdf/controls/ZoomControls';
 import { PageNavigation } from '../pdf/controls/PageNavigation';
+import { MobileZoomControls } from '../pdf/controls/MobileZoomControls';
+import { MobilePageNavigation } from '../pdf/controls/MobilePageNavigation';
 
 export function Header() {
   const { toggleSidebar, viewMode, setViewMode, currentDocumentTitle } = useStore();
@@ -31,30 +33,30 @@ export function Header() {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-4 py-2">
-      <div className="flex items-center gap-4">
+    <header className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* 메뉴 토글 (모바일/태블릿) */}
         {(isMobile || isTablet) && (
           <button
             onClick={toggleSidebar}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         )}
 
-        {/* 로고/타이틀 */}
-        <div className="flex items-center gap-2">
-          <FileText className="w-6 h-6 text-primary-500" />
-          {!isMobile && (
+        {/* 로고/타이틀 - 데스크톱만 */}
+        {!isMobile && (
+          <div className="flex items-center gap-2">
+            <FileText className="w-6 h-6 text-primary-500" />
             <span className="font-semibold text-gray-800">PDF 뷰어</span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 문서 라이브러리 버튼 */}
         <button
           onClick={toggleLibrary}
-          className="flex items-center gap-2 px-3 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
         >
           <FolderOpen className="w-4 h-4" />
           {!isMobile && <span className="text-sm">라이브러리</span>}
@@ -70,13 +72,21 @@ export function Header() {
         />
         <button
           onClick={handleUploadClick}
-          className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <Upload className="w-4 h-4" />
           {!isMobile && <span className="text-sm">로컬 파일</span>}
         </button>
 
-        {/* 현재 문서 이름 */}
+        {/* 모바일: 페이지 네비게이션 */}
+        {document && isMobile && (
+          <>
+            <div className="w-px h-6 bg-gray-200" />
+            <MobilePageNavigation />
+          </>
+        )}
+
+        {/* 현재 문서 이름 - 데스크톱 */}
         {currentDocumentTitle && !isMobile && (
           <>
             <div className="w-px h-8 bg-gray-200" />
@@ -86,29 +96,32 @@ export function Header() {
           </>
         )}
 
-        {/* 구분선 */}
-        {document && <div className="w-px h-8 bg-gray-200" />}
-
-        {/* 페이지 네비게이션 */}
-        {document && !isMobile && <PageNavigation />}
-
-        {/* 구분선 */}
+        {/* 구분선 - 데스크톱 */}
         {document && !isMobile && <div className="w-px h-8 bg-gray-200" />}
 
-        {/* 줌 컨트롤 */}
+        {/* 페이지 네비게이션 - 데스크톱 */}
+        {document && !isMobile && <PageNavigation />}
+
+        {/* 구분선 - 데스크톱 */}
+        {document && !isMobile && <div className="w-px h-8 bg-gray-200" />}
+
+        {/* 줌 컨트롤 - 데스크톱 */}
         {document && !isMobile && <ZoomControls />}
 
         {/* 스페이서 */}
         <div className="flex-1" />
 
-        {/* 텍스트 검색 */}
+        {/* 모바일: 줌 컨트롤 */}
+        {document && isMobile && <MobileZoomControls />}
+
+        {/* 텍스트 검색 - 데스크톱 */}
         {document && !isMobile && (
           <div className="w-64">
             <TextSearch />
           </div>
         )}
 
-        {/* 뷰 모드 선택 */}
+        {/* 뷰 모드 선택 - 데스크톱 */}
         {document && !isMobile && (
           <>
             <div className="w-px h-8 bg-gray-200" />
@@ -128,7 +141,7 @@ export function Header() {
         <div className="relative">
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center gap-1 sm:gap-2 p-1.5 sm:px-3 sm:py-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <User className="w-4 h-4 text-gray-600" />
             {!isMobile && (
@@ -170,15 +183,6 @@ export function Header() {
           )}
         </div>
       </div>
-
-      {/* 모바일 두 번째 줄 */}
-      {document && isMobile && (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t">
-          <PageNavigation />
-          <div className="flex-1" />
-          <ZoomControls />
-        </div>
-      )}
     </header>
   );
 }
