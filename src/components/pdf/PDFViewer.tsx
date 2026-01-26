@@ -2,6 +2,8 @@ import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { usePDF } from '../../hooks/usePDF';
 import { useStore } from '../../store';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
+import { useMousePan } from '../../hooks/useMousePan';
+import { useResponsive } from '../../hooks/useResponsive';
 import { PDFPage } from './PDFPage';
 import { WelcomeScreen } from './WelcomeScreen';
 import { Loader2 } from 'lucide-react';
@@ -13,23 +15,30 @@ interface PDFViewerProps {
 export function PDFViewer({ className = '' }: PDFViewerProps) {
   const { document, numPages, isLoading, error, getPage, currentPage, goToPage } = usePDF();
   const { scale, setScale, viewMode, setPageOriginalSize, setContainerSize } = useStore();
+  const { isMobile } = useResponsive();
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
   const [pageLoaded, setPageLoaded] = useState(false);
 
-  // 핀치 줌 (callback ref 반환)
+  // 핀치 줌 (callback ref 반환) - 모바일용
   const pinchZoomRef = usePinchZoom({
     currentScale: scale,
     onZoomChange: setScale,
   });
 
-  // ref 병합: pagesContainerRef와 pinchZoomRef를 모두 연결
+  // 마우스 패닝 (callback ref 반환) - PC용
+  const mousePanRef = useMousePan({
+    enabled: !isMobile,
+  });
+
+  // ref 병합: pagesContainerRef, pinchZoomRef, mousePanRef 모두 연결
   const setRefs = useCallback(
     (element: HTMLDivElement | null) => {
       pagesContainerRef.current = element;
-      pinchZoomRef(element); // callback ref 호출
+      pinchZoomRef(element); // 모바일 핀치 줌
+      mousePanRef(element); // PC 마우스 패닝
     },
-    [pinchZoomRef]
+    [pinchZoomRef, mousePanRef]
   );
 
   // 컨테이너 크기 추적
