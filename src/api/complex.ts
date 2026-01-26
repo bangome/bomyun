@@ -69,16 +69,23 @@ export async function createComplex(name: string): Promise<Complex> {
   // 랜덤 초대 코드 생성 (8자리)
   const inviteCode = generateInviteCode();
 
+  console.log('Creating complex:', { name, inviteCode, userId: user.id });
+
   const { data, error } = await supabase
     .from('complexes')
     .insert({ name, invite_code: inviteCode })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Complex insert error:', error);
+    throw error;
+  }
+
+  console.log('Complex created:', data);
 
   // 생성자를 관리자로 설정하고 단지에 가입
-  await supabase
+  const { error: profileError } = await supabase
     .from('user_profiles')
     .update({
       complex_id: data.id,
@@ -87,6 +94,12 @@ export async function createComplex(name: string): Promise<Complex> {
     })
     .eq('id', user.id);
 
+  if (profileError) {
+    console.error('Profile update error:', profileError);
+    throw profileError;
+  }
+
+  console.log('Profile updated successfully');
   return data;
 }
 
