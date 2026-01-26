@@ -43,23 +43,35 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
 
   // 컨테이너 크기 추적
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (!document) return;
 
     const updateContainerSize = () => {
-      // 외부 컨테이너 크기에서 내부 padding (p-4 = 16px * 2) 제외
+      const container = pagesContainerRef.current;
+      if (!container) return;
+
+      // 스크롤 컨테이너의 실제 뷰포트 크기 (패딩 p-4 = 16px * 2 = 32px 제외)
       const availableWidth = container.clientWidth - 32;
       const availableHeight = container.clientHeight - 32;
-      setContainerSize(Math.max(0, availableWidth), Math.max(0, availableHeight));
+
+      if (availableWidth > 0 && availableHeight > 0) {
+        setContainerSize(availableWidth, availableHeight);
+      }
     };
 
-    updateContainerSize();
+    // 초기 크기 설정 (DOM이 완전히 렌더링된 후)
+    requestAnimationFrame(() => {
+      updateContainerSize();
+    });
+
+    // ResizeObserver로 크기 변화 감지
+    const container = pagesContainerRef.current;
+    if (!container) return;
 
     const resizeObserver = new ResizeObserver(updateContainerSize);
     resizeObserver.observe(container);
 
     return () => resizeObserver.disconnect();
-  }, [setContainerSize]);
+  }, [setContainerSize, document]);
 
   // 첫 페이지 원본 크기 가져오기
   useEffect(() => {
