@@ -11,10 +11,10 @@ interface UsePinchZoomOptions {
 interface PinchState {
   initialDistance: number;
   initialScale: number;
-  initialScrollLeft: number;
-  initialScrollTop: number;
-  centerX: number; // 컨테이너 내 중심점 X (스크롤 포함)
-  centerY: number; // 컨테이너 내 중심점 Y (스크롤 포함)
+  centerX: number;
+  centerY: number;
+  viewCenterX: number;
+  viewCenterY: number;
 }
 
 export function usePinchZoom({
@@ -25,9 +25,8 @@ export function usePinchZoom({
 }: UsePinchZoomOptions) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const pinchStateRef = useRef<PinchState | null>(null);
-  const lastScaleRef = useRef<number>(currentScale);
+  const visualScaleRef = useRef<number>(1); // CSS transform용 시각적 스케일 비율
 
-  // callback ref를 반환
   const pinchZoomRef = useCallback((node: HTMLDivElement | null) => {
     setContainer(node);
   }, []);
@@ -41,7 +40,6 @@ export function usePinchZoom({
     );
   }, []);
 
-  // 두 손가락의 중심점 계산 (화면 좌표)
   const getCenter = useCallback((touches: TouchList): { x: number; y: number } => {
     if (touches.length < 2) return { x: 0, y: 0 };
     const [touch1, touch2] = [touches[0], touches[1]];
@@ -51,25 +49,46 @@ export function usePinchZoom({
     };
   }, []);
 
+  // CSS transform 적용 (시각적 줌)
+  const applyVisualZoom = useCallback((scaleRatio: number, originX: number, originY: number) => {
+    if (!container) return;
+    const content = container.firstElementChild as HTMLElement;
+    if (!content) return;
+
+    content.style.transformOrigin = `${originX}px ${originY}px`;
+    content.style.transform = `scale(${scaleRatio})`;
+  }, [container]);
+
+  // CSS transform 초기화
+  const resetVisualZoom = useCallback(() => {
+    if (!container) return;
+    const content = container.firstElementChild as HTMLElement;
+    if (!content) return;
+
+    content.style.transform = '';
+    content.style.transformOrigin = '';
+  }, [container]);
+
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
       if (e.touches.length === 2 && container) {
         const rect = container.getBoundingClientRect();
         const center = getCenter(e.touches);
 
-        // 컨테이너 기준 상대 좌표 + 스크롤 위치 = 문서 내 절대 좌표
-        const centerX = center.x - rect.left + container.scrollLeft;
-        const centerY = center.y - rect.top + container.scrollTop;
+        const viewCenterX = center.x - rect.left;
+        const viewCenterY = center.y - rect.top;
+        const centerX = viewCenterX + container.scrollLeft;
+        const centerY = viewCenterY + container.scrollTop;
 
         pinchStateRef.current = {
           initialDistance: getDistance(e.touches),
           initialScale: currentScale,
-          initialScrollLeft: container.scrollLeft,
-          initialScrollTop: container.scrollTop,
           centerX,
           centerY,
+          viewCenterX,
+          viewCenterY,
         };
-        lastScaleRef.current = currentScale;
+        visualScaleRef.current = 1;
       }
     },
     [container, currentScale, getDistance, getCenter]
@@ -82,41 +101,49 @@ export function usePinchZoom({
 
         const state = pinchStateRef.current;
         const currentDistance = getDistance(e.touches);
-        const scaleFactor = currentDistance / state.initialDistance;
-        let newScale = state.initialScale * scaleFactor;
+        const scaleRatio = currentDistance / state.initialDistance;
 
-        // 범위 제한
+        // 새 스케일 계산 (범위 제한)
+        let newScale = state.initialScale * scaleRatio;
         newScale = Math.max(minScale, Math.min(maxScale, newScale));
-        newScale = Math.round(newScale * 100) / 100;
 
-        // 스케일 변경
-        onZoomChange(newScale);
+        // 실제 적용할 비율 (범위 제한 반영)
+        const actualRatio = newScale / state.initialScale;
+        visualScaleRef.current = actualRatio;
 
-        // 중심점 기준으로 스크롤 위치 조정
-        // 새 스케일에서의 중심점 위치 = 원래 중심점 * (새 스케일 / 원래 스케일)
-        const scaleRatio = newScale / state.initialScale;
-        const newCenterX = state.centerX * scaleRatio;
-        const newCenterY = state.centerY * scaleRatio;
-
-        // 현재 화면에서의 중심점 위치 (컨테이너 기준)
-        const center = getCenter(e.touches);
-        const rect = container.getBoundingClientRect();
-        const viewCenterX = center.x - rect.left;
-        const viewCenterY = center.y - rect.top;
-
-        // 새 스크롤 위치: 새 중심점 - 화면상 중심점 위치
-        container.scrollLeft = newCenterX - viewCenterX;
-        container.scrollTop = newCenterY - viewCenterY;
-
-        lastScaleRef.current = newScale;
+        // CSS transform으로 시각적 줌만 적용 (깜빡임 없음)
+        applyVisualZoom(actualRatio, state.centerX, state.centerY);
       }
     },
-    [container, minScale, maxScale, onZoomChange, getDistance, getCenter]
+    [container, minScale, maxScale, getDistance, applyVisualZoom]
   );
 
   const handleTouchEnd = useCallback(() => {
+    if (pinchStateRef.current && container) {
+      const state = pinchStateRef.current;
+      const finalScale = state.initialScale * visualScaleRef.current;
+      const roundedScale = Math.round(finalScale * 100) / 100;
+
+      // CSS transform 초기화
+      resetVisualZoom();
+
+      // 실제 스케일 적용 (렌더링 발생)
+      onZoomChange(roundedScale);
+
+      // 스크롤 위치 조정
+      requestAnimationFrame(() => {
+        if (!container) return;
+        const scaleRatio = roundedScale / state.initialScale;
+        const newCenterX = state.centerX * scaleRatio;
+        const newCenterY = state.centerY * scaleRatio;
+
+        container.scrollLeft = newCenterX - state.viewCenterX;
+        container.scrollTop = newCenterY - state.viewCenterY;
+      });
+    }
     pinchStateRef.current = null;
-  }, []);
+    visualScaleRef.current = 1;
+  }, [container, onZoomChange, resetVisualZoom]);
 
   useEffect(() => {
     if (!container) return;
