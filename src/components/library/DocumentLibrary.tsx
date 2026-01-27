@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp, XCircle } from 'lucide-react';
+import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp, XCircle, FolderInput, Folder as FolderIcon } from 'lucide-react';
 import { useStore } from '../../store';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { usePDF } from '../../hooks/usePDF';
@@ -44,10 +44,9 @@ export function DocumentLibrary() {
   // 모바일 선택 모드
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
-  // 모바일 터치 드래그 상태
-  const [touchDragDoc, setTouchDragDoc] = useState<Document | null>(null);
-  const [touchDragPosition, setTouchDragPosition] = useState<{ x: number; y: number } | null>(null);
-  const [touchDragOverFolder, setTouchDragOverFolder] = useState<string | null>(null);
+  // 모바일 이동 폴더 선택 모달
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [allFolders, setAllFolders] = useState<Folder[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
@@ -132,103 +131,40 @@ export function DocumentLibrary() {
     setSelectedIds(new Set());
   }, []);
 
-  // 모바일: 터치 드래그 시작
-  const handleTouchDragStart = useCallback((doc: Document, touch: React.Touch) => {
-    // 선택된 문서가 있으면 선택된 것들 모두, 없으면 현재 문서만
-    if (!selectedIds.has(doc.id)) {
-      setSelectedIds(new Set([doc.id]));
+  // 모바일: 이동 모달 열기
+  const handleOpenMoveModal = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+
+    // 모든 폴더 목록 가져오기 (현재 폴더 + 루트 레벨 폴더들)
+    try {
+      const { getFolders } = await import('../../api/folders');
+      const rootFolders = await getFolders(null);
+      setAllFolders(rootFolders);
+      setIsMoveModalOpen(true);
+    } catch (error) {
+      console.error('폴더 목록 로드 실패:', error);
+      alert('폴더 목록을 불러올 수 없습니다.');
     }
-    setTouchDragDoc(doc);
-    setTouchDragPosition({ x: touch.clientX, y: touch.clientY });
   }, [selectedIds]);
 
-  // 모바일: 터치 드래그 이동
-  const handleTouchDragMove = useCallback((touch: React.Touch) => {
-    setTouchDragPosition({ x: touch.clientX, y: touch.clientY });
-
-    // 드래그 위치에 있는 폴더 찾기
-    const container = listContainerRef.current;
-    if (!container) return;
-
-    const folderElements = container.querySelectorAll('[data-folder-id]');
-    let foundFolderId: string | null = null;
-
-    folderElements.forEach((el) => {
-      const rect = el.getBoundingClientRect();
-      if (
-        touch.clientX >= rect.left &&
-        touch.clientX <= rect.right &&
-        touch.clientY >= rect.top &&
-        touch.clientY <= rect.bottom
-      ) {
-        foundFolderId = el.getAttribute('data-folder-id');
-      }
-    });
-
-    // 상위 폴더 영역 확인
-    const parentEl = container.querySelector('[data-parent-folder]');
-    if (parentEl) {
-      const rect = parentEl.getBoundingClientRect();
-      if (
-        touch.clientX >= rect.left &&
-        touch.clientX <= rect.right &&
-        touch.clientY >= rect.top &&
-        touch.clientY <= rect.bottom
-      ) {
-        foundFolderId = 'parent';
-      }
-    }
-
-    setTouchDragOverFolder(foundFolderId);
-  }, []);
-
-  // 모바일: 터치 드래그 종료
-  const handleTouchDragEnd = useCallback(async () => {
-    if (!touchDragDoc) {
-      setTouchDragPosition(null);
-      setTouchDragOverFolder(null);
-      return;
-    }
-
+  // 모바일: 선택한 폴더로 이동
+  const handleMoveToFolder = useCallback(async (targetFolderId: string | null) => {
     const docIds = Array.from(selectedIds);
-    if (docIds.length === 0) {
-      docIds.push(touchDragDoc.id);
-    }
+    if (docIds.length === 0) return;
 
-    // 폴더에 드롭
-    if (touchDragOverFolder && touchDragOverFolder !== 'parent') {
-      try {
-        for (const docId of docIds) {
-          await moveDocumentToFolder(docId, touchDragOverFolder);
-        }
-        setSelectedIds(new Set());
-        loadCurrentFolder();
-      } catch (error) {
-        console.error('이동 실패:', error);
-        alert('문서 이동에 실패했습니다.');
+    try {
+      for (const docId of docIds) {
+        await moveDocumentToFolder(docId, targetFolderId);
       }
-    } else if (touchDragOverFolder === 'parent' && currentFolderId) {
-      // 상위 폴더로 이동
-      const parentFolderId = folderPath.length > 1
-        ? folderPath[folderPath.length - 2].id
-        : null;
-
-      try {
-        for (const docId of docIds) {
-          await moveDocumentToFolder(docId, parentFolderId);
-        }
-        setSelectedIds(new Set());
-        loadCurrentFolder();
-      } catch (error) {
-        console.error('이동 실패:', error);
-        alert('문서 이동에 실패했습니다.');
-      }
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+      setIsMoveModalOpen(false);
+      loadCurrentFolder();
+    } catch (error) {
+      console.error('이동 실패:', error);
+      alert('문서 이동에 실패했습니다.');
     }
-
-    setTouchDragDoc(null);
-    setTouchDragPosition(null);
-    setTouchDragOverFolder(null);
-  }, [touchDragDoc, touchDragOverFolder, selectedIds, currentFolderId, folderPath, moveDocumentToFolder, loadCurrentFolder]);
+  }, [selectedIds, moveDocumentToFolder, loadCurrentFolder]);
 
   // 드래그 시작
   const handleDragStart = useCallback((e: React.DragEvent, doc: Document) => {
@@ -572,13 +508,24 @@ export function DocumentLibrary() {
             <span className="text-sm font-medium text-primary-700">
               {selectedIds.size}개 선택됨
             </span>
-            <button
-              onClick={handleCancelSelectionMode}
-              className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-lg"
-            >
-              <XCircle className="w-4 h-4" />
-              취소
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleOpenMoveModal}
+                  className="flex items-center gap-1 px-3 py-1 text-sm bg-primary-500 text-white hover:bg-primary-600 rounded-lg"
+                >
+                  <FolderInput className="w-4 h-4" />
+                  이동
+                </button>
+              )}
+              <button
+                onClick={handleCancelSelectionMode}
+                className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-lg"
+              >
+                <XCircle className="w-4 h-4" />
+                취소
+              </button>
+            </div>
           </div>
         )}
 
@@ -618,14 +565,14 @@ export function DocumentLibrary() {
                   }}
                   className={`
                     flex items-center gap-3 p-3 rounded-lg border border-dashed cursor-pointer transition-all
-                    ${isDragOverParent || touchDragOverFolder === 'parent'
+                    ${isDragOverParent
                       ? 'border-primary-500 bg-primary-100'
                       : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                     }
                   `}
                 >
-                  <ArrowUp className={`w-5 h-5 ${isDragOverParent || touchDragOverFolder === 'parent' ? 'text-primary-500' : 'text-gray-400'}`} />
-                  <span className={`text-sm ${isDragOverParent || touchDragOverFolder === 'parent' ? 'text-primary-600' : 'text-gray-500'}`}>
+                  <ArrowUp className={`w-5 h-5 ${isDragOverParent ? 'text-primary-500' : 'text-gray-400'}`} />
+                  <span className={`text-sm ${isDragOverParent ? 'text-primary-600' : 'text-gray-500'}`}>
                     상위 폴더로 이동
                   </span>
                 </div>
@@ -640,7 +587,6 @@ export function DocumentLibrary() {
                   onRename={handleRenameFolder}
                   onDelete={handleDeleteFolder}
                   onDrop={handleDropToFolder}
-                  isTouchDragOver={touchDragOverFolder === folder.id}
                 />
               ))}
 
@@ -662,9 +608,6 @@ export function DocumentLibrary() {
                   onOpen={handleOpenDocument}
                   onDelete={handleDeleteDocument}
                   onDragStart={handleDragStart}
-                  onTouchDragStart={handleTouchDragStart}
-                  onTouchDragMove={handleTouchDragMove}
-                  onTouchDragEnd={handleTouchDragEnd}
                 />
               ))}
             </div>
@@ -695,19 +638,72 @@ export function DocumentLibrary() {
         </div>
       </div>
 
-      {/* 터치 드래그 고스트 요소 */}
-      {touchDragDoc && touchDragPosition && (
-        <div
-          className="fixed z-[100] pointer-events-none"
-          style={{
-            left: touchDragPosition.x - 40,
-            top: touchDragPosition.y - 20,
-          }}
-        >
-          <div className="bg-primary-500 text-white px-3 py-2 rounded-lg shadow-xl text-sm font-medium opacity-90">
-            {selectedIds.size > 1 ? `${selectedIds.size}개 파일` : touchDragDoc.title}
+      {/* 이동 폴더 선택 모달 */}
+      {isMoveModalOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-[60]"
+            onClick={() => setIsMoveModalOpen(false)}
+          />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl z-[70] max-h-[70vh] flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">이동할 폴더 선택</h3>
+              <button
+                onClick={() => setIsMoveModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {/* 루트 폴더 (홈) */}
+              <button
+                onClick={() => handleMoveToFolder(null)}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 ${
+                  currentFolderId === null ? 'bg-gray-100' : ''
+                }`}
+              >
+                <Home className="w-5 h-5 text-gray-500" />
+                <span className="text-gray-900">홈 (루트)</span>
+                {currentFolderId === null && (
+                  <span className="ml-auto text-xs text-gray-400">현재 위치</span>
+                )}
+              </button>
+
+              {/* 폴더 목록 */}
+              {allFolders.map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => handleMoveToFolder(folder.id)}
+                  disabled={folder.id === currentFolderId}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    folder.id === currentFolderId ? 'bg-gray-100' : ''
+                  }`}
+                >
+                  <FolderIcon className="w-5 h-5 text-amber-500" />
+                  <span className="text-gray-900">{folder.name}</span>
+                  {folder.id === currentFolderId && (
+                    <span className="ml-auto text-xs text-gray-400">현재 위치</span>
+                  )}
+                </button>
+              ))}
+
+              {allFolders.length === 0 && currentFolderId !== null && (
+                <p className="text-center py-4 text-gray-500 text-sm">
+                  다른 폴더가 없습니다
+                </p>
+              )}
+            </div>
+            <div className="p-4 border-t">
+              <button
+                onClick={() => setIsMoveModalOpen(false)}
+                className="w-full py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                취소
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

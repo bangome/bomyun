@@ -8,10 +8,9 @@ interface FolderCardProps {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onDrop: (folderId: string, e: React.DragEvent) => void;
-  isTouchDragOver?: boolean;
 }
 
-export function FolderCard({ folder, onOpen, onRename, onDelete, onDrop, isTouchDragOver }: FolderCardProps) {
+export function FolderCard({ folder, onOpen, onRename, onDelete, onDrop }: FolderCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
@@ -52,7 +51,7 @@ export function FolderCard({ folder, onOpen, onRename, onDelete, onDrop, isTouch
     onDrop(folder.id, e);
   };
 
-  const isHighlighted = isDragOver || isTouchDragOver;
+  const isHighlighted = isDragOver;
 
   return (
     <div

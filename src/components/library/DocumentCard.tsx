@@ -1,4 +1,3 @@
-import { useRef, useCallback } from 'react';
 import { FileText, Trash2, ExternalLink, GripVertical, Check } from 'lucide-react';
 import type { Document } from '../../types/database.types';
 
@@ -12,9 +11,6 @@ interface DocumentCardProps {
   onOpen: (doc: Document) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, doc: Document) => void;
-  onTouchDragStart?: (doc: Document, touch: React.Touch) => void;
-  onTouchDragMove?: (touch: React.Touch) => void;
-  onTouchDragEnd?: () => void;
 }
 
 export function DocumentCard({
@@ -27,13 +23,7 @@ export function DocumentCard({
   onOpen,
   onDelete,
   onDragStart,
-  onTouchDragStart,
-  onTouchDragMove,
-  onTouchDragEnd,
 }: DocumentCardProps) {
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const isDragging = useRef(false);
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -70,7 +60,6 @@ export function DocumentCard({
   };
 
   const handleDragStart = (e: React.DragEvent) => {
-    // 모바일에서는 터치 드래그로 처리
     if (isMobile) {
       e.preventDefault();
       return;
@@ -78,57 +67,12 @@ export function DocumentCard({
     onDragStart(e, document);
   };
 
-  // 터치 이벤트 핸들러 (모바일용)
-  // 일반 모드: 터치→실행
-  // 선택 모드: 터치→선택/해제, 선택된 문서 드래그→폴더이동
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  // 모바일 터치 핸들러
+  // 일반 모드: 터치 → 실행
+  // 선택 모드: 터치 → 선택/해제
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (!isMobile) return;
 
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    isDragging.current = false;
-  }, [isMobile]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isMobile || !touchStartPos.current) return;
-
-    const touch = e.touches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
-
-    // 선택 모드에서 선택된 문서를 10px 이상 드래그하면 이동 시작
-    if (isSelectionMode && isSelected && (deltaX > 10 || deltaY > 10)) {
-      if (!isDragging.current && onTouchDragStart) {
-        isDragging.current = true;
-
-        // 진동 피드백
-        if (navigator.vibrate) {
-          navigator.vibrate(30);
-        }
-
-        onTouchDragStart(document, touch);
-      }
-    }
-
-    // 드래그 중이면 드래그 이벤트 전달
-    if (isDragging.current && onTouchDragMove) {
-      e.preventDefault();
-      onTouchDragMove(touch);
-    }
-  }, [isMobile, isSelectionMode, isSelected, document, onTouchDragStart, onTouchDragMove]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!isMobile) return;
-
-    // 드래그 종료
-    if (isDragging.current && onTouchDragEnd) {
-      onTouchDragEnd();
-      isDragging.current = false;
-      touchStartPos.current = null;
-      return;
-    }
-
-    // 짧은 터치
     if (isSelectionMode) {
       // 선택 모드: 선택/해제 (실행 안함)
       onSelect(document, e as any);
@@ -136,9 +80,7 @@ export function DocumentCard({
       // 일반 모드: 바로 실행
       onOpen(document);
     }
-
-    touchStartPos.current = null;
-  }, [isMobile, isSelectionMode, document, onSelect, onOpen, onTouchDragEnd]);
+  };
 
   return (
     <div
@@ -146,8 +88,6 @@ export function DocumentCard({
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onDragStart={handleDragStart}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       className={`
         group p-4 rounded-lg border cursor-pointer transition-all select-none
