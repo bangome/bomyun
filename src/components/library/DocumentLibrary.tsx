@@ -41,9 +41,6 @@ export function DocumentLibrary() {
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [isDragOverParent, setIsDragOverParent] = useState(false);
 
-  // 모바일 선택 모드
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-
   // 모바일 터치 드래그 상태
   const [touchDragDoc, setTouchDragDoc] = useState<Document | null>(null);
   const [touchDragPosition, setTouchDragPosition] = useState<{ x: number; y: number } | null>(null);
@@ -65,24 +62,17 @@ export function DocumentLibrary() {
 
   // 문서 선택 핸들러
   const handleSelectDocument = useCallback((doc: Document, e: React.MouseEvent) => {
-    // 모바일 선택 모드에서의 처리
-    if (isMobileOrTablet && isSelectionMode) {
+    // 모바일: 터치하면 선택에 추가
+    if (isMobileOrTablet) {
       setSelectedIds(prev => {
         const newSet = new Set(prev);
-        if (newSet.has(doc.id)) {
-          newSet.delete(doc.id);
-        } else {
-          newSet.add(doc.id);
-        }
-        // 선택된 항목이 없으면 선택 모드 종료
-        if (newSet.size === 0) {
-          setIsSelectionMode(false);
-        }
+        newSet.add(doc.id);
         return newSet;
       });
       return;
     }
 
+    // PC: 기존 동작 유지
     const docIndex = filteredDocuments.findIndex(d => d.id === doc.id);
 
     if (e.ctrlKey || e.metaKey) {
@@ -115,17 +105,19 @@ export function DocumentLibrary() {
       setSelectedIds(new Set([doc.id]));
       setLastSelectedId(doc.id);
     }
-  }, [filteredDocuments, lastSelectedId, isMobileOrTablet, isSelectionMode]);
+  }, [filteredDocuments, lastSelectedId, isMobileOrTablet]);
 
-  // 모바일: 롱프레스로 선택 모드 진입
+  // 모바일: 롱프레스로 선택 (동일 동작, 진동 피드백은 DocumentCard에서 처리)
   const handleLongPress = useCallback((doc: Document) => {
-    setIsSelectionMode(true);
-    setSelectedIds(new Set([doc.id]));
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(doc.id);
+      return newSet;
+    });
   }, []);
 
-  // 모바일: 선택 모드 종료
+  // 모바일: 선택 취소
   const handleCancelSelectionMode = useCallback(() => {
-    setIsSelectionMode(false);
     setSelectedIds(new Set());
   }, []);
 
@@ -199,7 +191,6 @@ export function DocumentLibrary() {
           await moveDocumentToFolder(docId, touchDragOverFolder);
         }
         setSelectedIds(new Set());
-        setIsSelectionMode(false);
         loadCurrentFolder();
       } catch (error) {
         console.error('이동 실패:', error);
@@ -216,7 +207,6 @@ export function DocumentLibrary() {
           await moveDocumentToFolder(docId, parentFolderId);
         }
         setSelectedIds(new Set());
-        setIsSelectionMode(false);
         loadCurrentFolder();
       } catch (error) {
         console.error('이동 실패:', error);
@@ -565,8 +555,8 @@ export function DocumentLibrary() {
           )}
         </div>
 
-        {/* 모바일 선택 모드 헤더 */}
-        {isMobileOrTablet && isSelectionMode && (
+        {/* 모바일 선택 헤더 */}
+        {isMobileOrTablet && selectedIds.size > 0 && (
           <div className="px-4 py-2 bg-primary-50 border-b flex items-center justify-between">
             <span className="text-sm font-medium text-primary-700">
               {selectedIds.size}개 선택됨
@@ -655,7 +645,7 @@ export function DocumentLibrary() {
                   document={doc}
                   isActive={doc.id === documentId}
                   isSelected={selectedIds.has(doc.id)}
-                  isSelectionMode={isSelectionMode}
+                  isSelectionMode={selectedIds.size > 0}
                   isMobile={isMobileOrTablet}
                   onSelect={handleSelectDocument}
                   onOpen={handleOpenDocument}
