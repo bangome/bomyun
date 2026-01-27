@@ -56,6 +56,7 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
 
   // 드래그 시작 (터치)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault(); // 화면 패닝 방지
     e.stopPropagation();
 
     const labelEl = labelRef.current;
