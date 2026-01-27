@@ -16,10 +16,15 @@ async function getUserComplexId(): Promise<string | null> {
 }
 
 export async function getDocuments(): Promise<Document[]> {
-  // RLS가 자동으로 같은 단지 문서만 반환
+  // 현재 사용자의 complex_id 확인
+  const complexId = await getUserComplexId();
+  if (!complexId) return []; // 단지에 가입되지 않은 경우 빈 배열 반환
+
+  // 명시적으로 complex_id 필터 적용 (RLS + API 레벨 이중 보안)
   const { data, error } = await supabase
     .from('documents')
     .select('*')
+    .eq('complex_id', complexId)
     .order('updated_at', { ascending: false });
 
   if (error) throw error;

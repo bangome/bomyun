@@ -17,9 +17,14 @@ async function getUserComplexId(): Promise<string | null> {
 
 // 폴더 목록 조회 (특정 부모 폴더 하위)
 export async function getFolders(parentId: string | null = null): Promise<Folder[]> {
+  // 현재 사용자의 complex_id 확인
+  const complexId = await getUserComplexId();
+  if (!complexId) return []; // 단지에 가입되지 않은 경우 빈 배열 반환
+
   let query = supabase
     .from('folders')
     .select('*')
+    .eq('complex_id', complexId)
     .order('name', { ascending: true });
 
   if (parentId) {
@@ -110,9 +115,14 @@ export async function moveDocumentToFolder(documentId: string, folderId: string 
 
 // 특정 폴더의 문서 조회
 export async function getDocumentsInFolder(folderId: string | null): Promise<any[]> {
+  // 현재 사용자의 complex_id 확인
+  const complexId = await getUserComplexId();
+  if (!complexId) return []; // 단지에 가입되지 않은 경우 빈 배열 반환
+
   let query = supabase
     .from('documents')
     .select('*')
+    .eq('complex_id', complexId)
     .order('updated_at', { ascending: false });
 
   if (folderId) {

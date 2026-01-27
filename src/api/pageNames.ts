@@ -1,6 +1,20 @@
 import { supabase } from '../lib/supabase';
 import type { PageName, GlobalPageSearchResult } from '../types/database.types';
 
+// 사용자의 complex_id 가져오기
+async function getUserComplexId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('complex_id')
+    .eq('id', user.id)
+    .single();
+
+  return data?.complex_id || null;
+}
+
 // 문서의 모든 페이지 이름 조회
 export async function getPageNames(documentId: string): Promise<PageName[]> {
   const { data, error } = await supabase
@@ -75,9 +89,13 @@ export async function deletePageNameByPage(
   if (error) throw error;
 }
 
-// 전역 페이지 이름 검색 (모든 문서에서 검색)
+// 전역 페이지 이름 검색 (같은 단지의 모든 문서에서 검색)
 export async function searchPageNamesGlobal(query: string): Promise<GlobalPageSearchResult[]> {
   if (!query.trim()) return [];
+
+  // 현재 사용자의 complex_id 확인
+  const complexId = await getUserComplexId();
+  if (!complexId) return []; // 단지에 가입되지 않은 경우 빈 배열 반환
 
   const { data, error } = await supabase
     .from('page_names')
@@ -89,6 +107,7 @@ export async function searchPageNamesGlobal(query: string): Promise<GlobalPageSe
       created_at,
       documents!inner(title)
     `)
+    .eq('complex_id', complexId)
     .ilike('name', `%${query}%`)
     .order('created_at', { ascending: false })
     .limit(50);

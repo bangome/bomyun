@@ -109,9 +109,13 @@ export async function searchLabels(
   return data || [];
 }
 
-// 전역 라벨 검색 (모든 문서에서 검색)
+// 전역 라벨 검색 (같은 단지의 모든 문서에서 검색)
 export async function searchLabelsGlobal(query: string): Promise<GlobalLabelSearchResult[]> {
   if (!query.trim()) return [];
+
+  // 현재 사용자의 complex_id 확인
+  const complexId = await getUserComplexId();
+  if (!complexId) return []; // 단지에 가입되지 않은 경우 빈 배열 반환
 
   const { data, error } = await supabase
     .from('labels')
@@ -126,6 +130,7 @@ export async function searchLabelsGlobal(query: string): Promise<GlobalLabelSear
       created_at,
       documents!inner(title)
     `)
+    .eq('complex_id', complexId)
     .ilike('text', `%${query}%`)
     .order('created_at', { ascending: false })
     .limit(50);
