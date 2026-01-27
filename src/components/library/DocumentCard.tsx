@@ -26,6 +26,7 @@ export function DocumentCard({
   onDragStart,
 }: DocumentCardProps) {
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isTouchMoved = useRef(false);
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -74,6 +75,20 @@ export function DocumentCard({
     if (!isMobile) return;
     const touch = e.touches[0];
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    isTouchMoved.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile || !touchStartPos.current) return;
+
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+
+    // 5px 이상 이동하면 스크롤로 간주
+    if (dx > 5 || dy > 5) {
+      isTouchMoved.current = true;
+    }
   };
 
   // 일반 모드: 터치 → 실행
@@ -82,20 +97,15 @@ export function DocumentCard({
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!isMobile) return;
 
-    // 스크롤인지 확인 (10px 이상 이동했으면 스크롤로 간주)
-    if (touchStartPos.current && e.changedTouches[0]) {
-      const touch = e.changedTouches[0];
-      const dx = Math.abs(touch.clientX - touchStartPos.current.x);
-      const dy = Math.abs(touch.clientY - touchStartPos.current.y);
-
-      if (dx > 10 || dy > 10) {
-        // 스크롤이므로 선택/실행하지 않음
-        touchStartPos.current = null;
-        return;
-      }
+    // 스크롤이었으면 선택/실행하지 않음
+    if (isTouchMoved.current) {
+      touchStartPos.current = null;
+      isTouchMoved.current = false;
+      return;
     }
 
     touchStartPos.current = null;
+    isTouchMoved.current = false;
 
     if (isSelectionMode) {
       // 선택 모드: 선택/해제 (실행 안함)
@@ -113,6 +123,7 @@ export function DocumentCard({
       onDoubleClick={handleDoubleClick}
       onDragStart={handleDragStart}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       className={`
         group p-4 rounded-lg border cursor-pointer transition-all select-none

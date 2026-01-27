@@ -165,6 +165,7 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
         left: `${currentPosition.x}%`,
         top: `${currentPosition.y}%`,
         transform: 'translateY(-50%)',
+        touchAction: 'none', // 라벨 터치 시 화면 패닝 방지
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
