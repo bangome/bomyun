@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp, XCircle, FolderInput, Folder as FolderIcon } from 'lucide-react';
+import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp, FolderInput, Folder as FolderIcon } from 'lucide-react';
 import { useStore } from '../../store';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { usePDF } from '../../hooks/usePDF';
@@ -502,33 +502,6 @@ export function DocumentLibrary() {
           )}
         </div>
 
-        {/* 모바일 선택 모드 헤더 */}
-        {isMobileOrTablet && isSelectionMode && (
-          <div className="px-4 py-2 bg-primary-50 border-b flex items-center justify-between">
-            <span className="text-sm font-medium text-primary-700">
-              {selectedIds.size}개 선택됨
-            </span>
-            <div className="flex items-center gap-2">
-              {selectedIds.size > 0 && (
-                <button
-                  onClick={handleOpenMoveModal}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-primary-500 text-white hover:bg-primary-600 rounded-lg"
-                >
-                  <FolderInput className="w-4 h-4" />
-                  이동
-                </button>
-              )}
-              <button
-                onClick={handleCancelSelectionMode}
-                className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-lg"
-              >
-                <XCircle className="w-4 h-4" />
-                취소
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* 폴더 및 문서 목록 */}
         <div
           ref={listContainerRef}
@@ -622,18 +595,35 @@ export function DocumentLibrary() {
               <span className="ml-2 text-primary-600">• {selectedIds.size}개 선택됨</span>
             )}
           </span>
-          {/* 모바일 다중선택 버튼 */}
+          {/* 모바일 버튼 */}
           {isMobileOrTablet && documents.length > 0 && (
-            <button
-              onClick={handleToggleSelectionMode}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                isSelectionMode
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {isSelectionMode ? '선택 완료' : '다중선택'}
-            </button>
+            <div className="flex items-center gap-2">
+              {isSelectionMode ? (
+                <>
+                  <button
+                    onClick={handleOpenMoveModal}
+                    disabled={selectedIds.size === 0}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-500 text-white hover:bg-primary-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FolderInput className="w-4 h-4" />
+                    이동
+                  </button>
+                  <button
+                    onClick={handleCancelSelectionMode}
+                    className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                  >
+                    취소
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleToggleSelectionMode}
+                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg"
+                >
+                  다중선택
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
