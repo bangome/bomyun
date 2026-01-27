@@ -2,12 +2,12 @@ import { useState, useCallback } from 'react';
 import { Plus, Search, Tag, Edit2, Trash2 } from 'lucide-react';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
-import { createLabel, updateLabel, deleteLabel } from '../../api/labels';
+import { updateLabel, deleteLabel } from '../../api/labels';
 import type { Label } from '../../types/database.types';
 
 const LABEL_COLORS = [
+  '#EF4444', // Red (기본)
   '#3B82F6', // Blue
-  '#EF4444', // Red
   '#10B981', // Green
   '#F59E0B', // Yellow
   '#8B5CF6', // Purple
@@ -16,16 +16,15 @@ const LABEL_COLORS = [
   '#14B8A6', // Teal
 ];
 
-interface LabelEditorProps {
-  label?: Label;
-  pageNumber: number;
+interface LabelEditFormProps {
+  label: Label;
   onSave: (text: string, color: string) => void;
   onCancel: () => void;
 }
 
-function LabelEditor({ label, pageNumber, onSave, onCancel }: LabelEditorProps) {
-  const [text, setText] = useState(label?.text || '');
-  const [color, setColor] = useState(label?.color || LABEL_COLORS[0]);
+function LabelEditForm({ label, onSave, onCancel }: LabelEditFormProps) {
+  const [text, setText] = useState(label.text);
+  const [color, setColor] = useState(label.color);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,10 +34,10 @@ function LabelEditor({ label, pageNumber, onSave, onCancel }: LabelEditorProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow-lg border">
+    <form onSubmit={handleSubmit} className="p-4 border-b">
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          페이지 {pageNumber} 라벨
+          페이지 {label.page_number} 라벨 수정
         </label>
         <input
           type="text"
@@ -80,7 +79,7 @@ function LabelEditor({ label, pageNumber, onSave, onCancel }: LabelEditorProps) 
           disabled={!text.trim()}
           className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
         >
-          {label ? '수정' : '추가'}
+          수정
         </button>
       </div>
     </form>
@@ -88,10 +87,17 @@ function LabelEditor({ label, pageNumber, onSave, onCancel }: LabelEditorProps) 
 }
 
 export function LabelManager() {
-  const { documentId, goToPage, currentPage } = usePDF();
-  const { labels, addLabel, updateLabel: updateLabelStore, removeLabel } = useStore();
+  const { goToPage } = usePDF();
+  const {
+    labels,
+    updateLabel: updateLabelStore,
+    removeLabel,
+    isLabelAddMode,
+    pendingLabelPosition,
+    setLabelAddMode,
+    setPendingLabelPosition
+  } = useStore();
 
-  const [isEditing, setIsEditing] = useState(false);
   const [editingLabel, setEditingLabel] = useState<Label | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -100,17 +106,18 @@ export function LabelManager() {
     return label.text.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  const handleAddLabel = useCallback(async (text: string, color: string) => {
-    if (!documentId) return;
+  // 라벨 추가 모드 시작 (위치 선택 모드)
+  const handleStartAddMode = useCallback(() => {
+    setLabelAddMode(true);
+    setPendingLabelPosition(null);
+    setEditingLabel(null);
+  }, [setLabelAddMode, setPendingLabelPosition]);
 
-    try {
-      const newLabel = await createLabel(documentId, currentPage, text, color);
-      addLabel(newLabel);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('라벨 추가 실패:', error);
-    }
-  }, [documentId, currentPage, addLabel]);
+  // 라벨 추가 모드 취소
+  const handleCancelAddMode = useCallback(() => {
+    setLabelAddMode(false);
+    setPendingLabelPosition(null);
+  }, [setLabelAddMode, setPendingLabelPosition]);
 
   const handleUpdateLabel = useCallback(async (text: string, color: string) => {
     if (!editingLabel) return;
@@ -147,9 +154,10 @@ export function LabelManager() {
             라벨
           </h3>
           <button
-            onClick={() => setIsEditing(true)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="현재 페이지에 라벨 추가"
+            onClick={handleStartAddMode}
+            disabled={isLabelAddMode || !!pendingLabelPosition}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            title="라벨 추가"
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -168,19 +176,53 @@ export function LabelManager() {
         </div>
       </div>
 
-      {/* 라벨 에디터 */}
-      {(isEditing || editingLabel) && (
-        <div className="p-4 border-b">
-          <LabelEditor
-            label={editingLabel || undefined}
-            pageNumber={editingLabel?.page_number || currentPage}
-            onSave={editingLabel ? handleUpdateLabel : handleAddLabel}
-            onCancel={() => {
-              setIsEditing(false);
-              setEditingLabel(null);
-            }}
-          />
+      {/* 라벨 추가 모드 안내 (위치 선택 대기) */}
+      {isLabelAddMode && !pendingLabelPosition && (
+        <div className="p-4 border-b bg-blue-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-800">라벨 위치 선택</p>
+              <p className="text-xs text-blue-600 mt-1">
+                PDF 페이지에서 원하는 위치를 클릭하세요
+              </p>
+            </div>
+            <button
+              onClick={handleCancelAddMode}
+              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+            >
+              취소
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* 위치 선택 후 입력 대기 안내 */}
+      {pendingLabelPosition && (
+        <div className="p-4 border-b bg-green-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-800">라벨 정보 입력</p>
+              <p className="text-xs text-green-600 mt-1">
+                페이지 {pendingLabelPosition.pageNumber}에 배치됩니다
+              </p>
+            </div>
+            <button
+              onClick={handleCancelAddMode}
+              className="px-3 py-1 text-sm text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 라벨 수정 폼 */}
+      {editingLabel && (
+        <LabelEditForm
+          label={editingLabel}
+          onSave={handleUpdateLabel}
+          onCancel={() => setEditingLabel(null)}
+        />
       )}
 
       {/* 라벨 목록 */}
@@ -206,7 +248,9 @@ export function LabelManager() {
                     <p className="text-sm font-medium text-gray-800 truncate">
                       {label.text}
                     </p>
-                    <p className="text-xs text-gray-500">페이지 {label.page_number}</p>
+                    <p className="text-xs text-gray-500">
+                      페이지 {label.page_number}
+                    </p>
                   </div>
                   <div className="flex gap-1">
                     <button

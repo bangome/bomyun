@@ -1,26 +1,36 @@
-import { Search, FileText, Tag, Loader2 } from 'lucide-react';
+import { Search, FileText, Tag, Loader2, BookOpen } from 'lucide-react';
 import { useGlobalLabelSearch } from '../../hooks/useGlobalLabelSearch';
 import { useDocumentNavigation } from '../../hooks/useDocumentNavigation';
-import type { GlobalLabelSearchResult } from '../../types/database.types';
+import type { GlobalSearchResult } from '../../types/database.types';
 
 export function GlobalLabelSearch() {
   const { query, results, isSearching, setQuery, clearSearch } = useGlobalLabelSearch();
   const { navigateToLabel } = useDocumentNavigation();
 
-  const handleResultClick = async (result: GlobalLabelSearchResult) => {
+  const handleResultClick = async (result: GlobalSearchResult) => {
     await navigateToLabel(result.document_id, result.page_number);
   };
 
+  // 문서별로 그룹화하고, 각 문서 내에서 라벨과 페이지로 분류
   const groupedResults = results.reduce((acc, result) => {
     if (!acc[result.document_id]) {
       acc[result.document_id] = {
         documentTitle: result.document_title,
         labels: [],
+        pages: [],
       };
     }
-    acc[result.document_id].labels.push(result);
+    if (result.type === 'label') {
+      acc[result.document_id].labels.push(result);
+    } else {
+      acc[result.document_id].pages.push(result);
+    }
     return acc;
-  }, {} as Record<string, { documentTitle: string; labels: GlobalLabelSearchResult[] }>);
+  }, {} as Record<string, { documentTitle: string; labels: GlobalSearchResult[]; pages: GlobalSearchResult[] }>);
+
+  // 결과 통계
+  const labelCount = results.filter(r => r.type === 'label').length;
+  const pageCount = results.filter(r => r.type === 'page').length;
 
   return (
     <div className="h-full flex flex-col">
@@ -30,7 +40,7 @@ export function GlobalLabelSearch() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="모든 문서에서 라벨 검색..."
+            placeholder="라벨, 페이지 이름 검색..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -55,7 +65,7 @@ export function GlobalLabelSearch() {
         ) : !query ? (
           <div className="text-center py-8 px-4 text-gray-500">
             <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="text-sm">모든 문서의 라벨을 검색하세요</p>
+            <p className="text-sm">모든 문서의 라벨과 페이지를 검색하세요</p>
           </div>
         ) : results.length === 0 ? (
           <div className="text-center py-8 px-4 text-gray-500">
@@ -63,7 +73,7 @@ export function GlobalLabelSearch() {
           </div>
         ) : (
           <div className="divide-y">
-            {Object.entries(groupedResults).map(([documentId, { documentTitle, labels }]) => (
+            {Object.entries(groupedResults).map(([documentId, { documentTitle, labels, pages }]) => (
               <div key={documentId} className="py-3">
                 {/* 문서 제목 */}
                 <div className="px-4 pb-2 flex items-center gap-2 text-xs text-gray-500">
@@ -71,29 +81,54 @@ export function GlobalLabelSearch() {
                   <span className="font-medium truncate">{documentTitle}</span>
                 </div>
 
-                {/* 라벨 목록 */}
-                <div className="space-y-1">
-                  {labels.map((result) => (
-                    <button
-                      key={result.id}
-                      onClick={() => handleResultClick(result)}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start gap-2">
-                        <Tag
-                          className="w-4 h-4 flex-shrink-0 mt-0.5"
-                          style={{ color: result.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 truncate">{result.text}</p>
-                          <p className="text-xs text-gray-500">
-                            {result.page_number}페이지
-                          </p>
+                {/* 페이지 이름 목록 */}
+                {pages.length > 0 && (
+                  <div className="space-y-1 mb-1">
+                    {pages.map((result) => (
+                      <button
+                        key={result.id}
+                        onClick={() => handleResultClick(result)}
+                        className="w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <BookOpen className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900 truncate">{result.text}</p>
+                            <p className="text-xs text-gray-500">
+                              {result.page_number}페이지
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 라벨 목록 */}
+                {labels.length > 0 && (
+                  <div className="space-y-1">
+                    {labels.map((result) => (
+                      <button
+                        key={result.id}
+                        onClick={() => handleResultClick(result)}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Tag
+                            className="w-4 h-4 flex-shrink-0 mt-0.5"
+                            style={{ color: result.color }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900 truncate">{result.text}</p>
+                            <p className="text-xs text-gray-500">
+                              {result.page_number}페이지
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -103,7 +138,10 @@ export function GlobalLabelSearch() {
       {/* 결과 개수 */}
       {results.length > 0 && (
         <div className="p-3 border-t text-xs text-gray-500 text-center">
-          {results.length}개의 라벨 발견
+          {labelCount > 0 && `라벨 ${labelCount}개`}
+          {labelCount > 0 && pageCount > 0 && ', '}
+          {pageCount > 0 && `페이지 ${pageCount}개`}
+          {' 발견'}
         </div>
       )}
     </div>

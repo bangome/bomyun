@@ -44,7 +44,9 @@ export async function createLabel(
   documentId: string,
   pageNumber: number,
   text: string,
-  color: string = '#3B82F6'
+  color: string = '#EF4444',
+  positionX: number = 95,
+  positionY: number = 10
 ): Promise<Label> {
   // 현재 사용자 정보 가져오기
   const { data: { user } } = await supabase.auth.getUser();
@@ -62,6 +64,8 @@ export async function createLabel(
       page_number: pageNumber,
       text,
       color,
+      position_x: positionX,
+      position_y: positionY,
     })
     .select()
     .single();
@@ -72,7 +76,7 @@ export async function createLabel(
 
 export async function updateLabel(
   id: string,
-  updates: { text?: string; color?: string }
+  updates: { text?: string; color?: string; position_x?: number; position_y?: number }
 ): Promise<Label> {
   const { data, error } = await supabase
     .from('labels')
@@ -116,6 +120,8 @@ export async function searchLabelsGlobal(query: string): Promise<GlobalLabelSear
       text,
       color,
       page_number,
+      position_x,
+      position_y,
       document_id,
       created_at,
       documents!inner(title)
@@ -132,6 +138,8 @@ export async function searchLabelsGlobal(query: string): Promise<GlobalLabelSear
     text: item.text,
     color: item.color,
     page_number: item.page_number,
+    position_x: item.position_x,
+    position_y: item.position_y,
     document_id: item.document_id,
     document_title: item.documents?.title || '제목 없음',
     created_at: item.created_at,

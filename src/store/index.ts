@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { ViewMode, SearchMatch } from '../types/pdf.types';
-import type { Label, Bookmark, Document, GlobalLabelSearchResult } from '../types/database.types';
+import type { Label, Document, Folder, GlobalSearchResult, PageName } from '../types/database.types';
 
 interface PDFSlice {
   document: PDFDocumentProxy | null;
@@ -57,44 +57,61 @@ interface SearchSlice {
 interface LabelSlice {
   labels: Label[];
   labelFilter: string;
+  isLabelAddMode: boolean;
+  pendingLabelPosition: { pageNumber: number; x: number; y: number } | null;
   setLabels: (labels: Label[]) => void;
   addLabel: (label: Label) => void;
   updateLabel: (id: string, updates: Partial<Label>) => void;
   removeLabel: (id: string) => void;
   setLabelFilter: (filter: string) => void;
-}
-
-interface BookmarkSlice {
-  bookmarks: Bookmark[];
-  setBookmarks: (bookmarks: Bookmark[]) => void;
-  addBookmark: (bookmark: Bookmark) => void;
-  removeBookmark: (id: string) => void;
-  isPageBookmarked: (pageNumber: number) => boolean;
+  setLabelAddMode: (isAddMode: boolean) => void;
+  setPendingLabelPosition: (data: { pageNumber: number; x: number; y: number } | null) => void;
 }
 
 interface DocumentLibrarySlice {
   libraryDocuments: Document[];
   isLibraryOpen: boolean;
   currentDocumentTitle: string | null;
+  // 폴더 관련
+  folders: Folder[];
+  currentFolderId: string | null;
+  folderPath: { id: string; name: string }[];
   setLibraryDocuments: (docs: Document[]) => void;
   addLibraryDocument: (doc: Document) => void;
   removeLibraryDocument: (id: string) => void;
+  updateLibraryDocument: (id: string, updates: Partial<Document>) => void;
   toggleLibrary: () => void;
   setLibraryOpen: (open: boolean) => void;
   setCurrentDocumentTitle: (title: string | null) => void;
+  // 폴더 관련
+  setFolders: (folders: Folder[]) => void;
+  addFolder: (folder: Folder) => void;
+  updateFolder: (id: string, updates: Partial<Folder>) => void;
+  removeFolder: (id: string) => void;
+  setCurrentFolderId: (folderId: string | null) => void;
+  setFolderPath: (path: { id: string; name: string }[]) => void;
 }
 
 interface GlobalSearchSlice {
   globalQuery: string;
-  globalResults: GlobalLabelSearchResult[];
+  globalResults: GlobalSearchResult[];
   isGlobalSearching: boolean;
   setGlobalQuery: (q: string) => void;
-  setGlobalResults: (r: GlobalLabelSearchResult[]) => void;
+  setGlobalResults: (r: GlobalSearchResult[]) => void;
   setGlobalSearching: (searching: boolean) => void;
   clearGlobalSearch: () => void;
 }
 
-type Store = PDFSlice & ViewerSlice & SearchSlice & LabelSlice & BookmarkSlice & DocumentLibrarySlice & GlobalSearchSlice;
+interface PageNamesSlice {
+  pageNames: PageName[];
+  setPageNames: (pageNames: PageName[]) => void;
+  addPageName: (pageName: PageName) => void;
+  updatePageName: (id: string, updates: Partial<PageName>) => void;
+  removePageName: (id: string) => void;
+  getPageName: (pageNumber: number) => PageName | undefined;
+}
+
+type Store = PDFSlice & ViewerSlice & SearchSlice & LabelSlice & DocumentLibrarySlice & GlobalSearchSlice & PageNamesSlice;
 
 export const useStore = create<Store>()(
   devtools(
@@ -127,7 +144,7 @@ export const useStore = create<Store>()(
             error: null,
             currentPage: 1,
             labels: [],
-            bookmarks: [],
+            pageNames: [],
           }),
 
         // Viewer Slice
@@ -185,6 +202,8 @@ export const useStore = create<Store>()(
         // Label Slice
         labels: [],
         labelFilter: '',
+        isLabelAddMode: false,
+        pendingLabelPosition: null,
         setLabels: (labels) => set({ labels }),
         addLabel: (label) => set((state) => ({ labels: [...state.labels, label] })),
         updateLabel: (id, updates) =>
@@ -196,22 +215,16 @@ export const useStore = create<Store>()(
         removeLabel: (id) =>
           set((state) => ({ labels: state.labels.filter((l) => l.id !== id) })),
         setLabelFilter: (filter) => set({ labelFilter: filter }),
-
-        // Bookmark Slice
-        bookmarks: [],
-        setBookmarks: (bookmarks) => set({ bookmarks }),
-        addBookmark: (bookmark) =>
-          set((state) => ({ bookmarks: [...state.bookmarks, bookmark] })),
-        removeBookmark: (id) =>
-          set((state) => ({ bookmarks: state.bookmarks.filter((b) => b.id !== id) })),
-        isPageBookmarked: (pageNumber) => {
-          return get().bookmarks.some((b) => b.page_number === pageNumber);
-        },
+        setLabelAddMode: (isAddMode) => set({ isLabelAddMode: isAddMode }),
+        setPendingLabelPosition: (data) => set({ pendingLabelPosition: data }),
 
         // Document Library Slice
         libraryDocuments: [],
         isLibraryOpen: false,
         currentDocumentTitle: null,
+        folders: [],
+        currentFolderId: null,
+        folderPath: [],
         setLibraryDocuments: (docs) => set({ libraryDocuments: docs }),
         addLibraryDocument: (doc) =>
           set((state) => ({ libraryDocuments: [doc, ...state.libraryDocuments] })),
@@ -219,9 +232,29 @@ export const useStore = create<Store>()(
           set((state) => ({
             libraryDocuments: state.libraryDocuments.filter((d) => d.id !== id),
           })),
+        updateLibraryDocument: (id, updates) =>
+          set((state) => ({
+            libraryDocuments: state.libraryDocuments.map((d) =>
+              d.id === id ? { ...d, ...updates } : d
+            ),
+          })),
         toggleLibrary: () => set((state) => ({ isLibraryOpen: !state.isLibraryOpen })),
         setLibraryOpen: (open) => set({ isLibraryOpen: open }),
         setCurrentDocumentTitle: (title) => set({ currentDocumentTitle: title }),
+        // 폴더 관련
+        setFolders: (folders) => set({ folders }),
+        addFolder: (folder) =>
+          set((state) => ({ folders: [...state.folders, folder].sort((a, b) => a.name.localeCompare(b.name)) })),
+        updateFolder: (id, updates) =>
+          set((state) => ({
+            folders: state.folders.map((f) =>
+              f.id === id ? { ...f, ...updates } : f
+            ),
+          })),
+        removeFolder: (id) =>
+          set((state) => ({ folders: state.folders.filter((f) => f.id !== id) })),
+        setCurrentFolderId: (folderId) => set({ currentFolderId: folderId }),
+        setFolderPath: (path) => set({ folderPath: path }),
 
         // Global Search Slice
         globalQuery: '',
@@ -232,6 +265,23 @@ export const useStore = create<Store>()(
         setGlobalSearching: (searching) => set({ isGlobalSearching: searching }),
         clearGlobalSearch: () =>
           set({ globalQuery: '', globalResults: [], isGlobalSearching: false }),
+
+        // Page Names Slice
+        pageNames: [],
+        setPageNames: (pageNames) => set({ pageNames }),
+        addPageName: (pageName) =>
+          set((state) => ({
+            pageNames: [...state.pageNames.filter((p) => p.page_number !== pageName.page_number), pageName],
+          })),
+        updatePageName: (id, updates) =>
+          set((state) => ({
+            pageNames: state.pageNames.map((p) =>
+              p.id === id ? { ...p, ...updates } : p
+            ),
+          })),
+        removePageName: (id) =>
+          set((state) => ({ pageNames: state.pageNames.filter((p) => p.id !== id) })),
+        getPageName: (pageNumber) => get().pageNames.find((p) => p.page_number === pageNumber),
       }),
       {
         name: 'pdf-viewer-storage',

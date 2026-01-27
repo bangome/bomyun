@@ -39,7 +39,8 @@ export async function getDocument(id: string): Promise<Document | null> {
 
 export async function createDocument(
   title: string,
-  file: File
+  file: File,
+  folderId: string | null = null
 ): Promise<Document> {
   // 현재 사용자 정보 가져오기
   const { data: { user } } = await supabase.auth.getUser();
@@ -60,12 +61,13 @@ export async function createDocument(
 
   if (uploadError) throw uploadError;
 
-  // 2. documents 테이블에 레코드 생성 (complex_id 포함)
+  // 2. documents 테이블에 레코드 생성 (complex_id, folder_id 포함)
   const { data, error } = await supabase
     .from('documents')
     .insert({
       user_id: user.id,
       complex_id: complexId,
+      folder_id: folderId,
       title,
       file_path: filePath,
       file_size: file.size,
@@ -101,7 +103,7 @@ export async function deleteDocument(id: string): Promise<void> {
 
   if (storageError) console.error('Storage 삭제 실패:', storageError);
 
-  // 3. documents 테이블에서 삭제 (labels, bookmarks는 CASCADE로 삭제됨)
+  // 3. documents 테이블에서 삭제 (labels는 CASCADE로 삭제됨)
   const { error } = await supabase.from('documents').delete().eq('id', id);
 
   if (error) throw error;

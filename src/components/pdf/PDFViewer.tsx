@@ -4,21 +4,84 @@ import { useStore } from '../../store';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { useMousePan } from '../../hooks/useMousePan';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useTextSearch } from '../../hooks/useTextSearch';
 import { PDFPage } from './PDFPage';
 import { WelcomeScreen } from './WelcomeScreen';
+import { LabelInputPopup } from '../labels/LabelInputPopup';
 import { Loader2 } from 'lucide-react';
+import { createLabel, updateLabel } from '../../api/labels';
+import type { Label } from '../../types/database.types';
+
+// 빈 라벨 프리뷰 컴포넌트 (마우스를 따라다님)
+function GhostLabel({ x, y }: { x: number; y: number }) {
+  const bgColor = 'rgba(239, 68, 68, 0.6)'; // 기본 빨간색 60% 투명도
+
+  return (
+    <div
+      className="fixed pointer-events-none z-50 flex items-center"
+      style={{
+        left: x,
+        top: y,
+        transform: 'translateY(-50%)',
+      }}
+    >
+      {/* 왼쪽 뾰족한 부분 */}
+      <div
+        className="w-0 h-0 flex-shrink-0"
+        style={{
+          borderTop: '12px solid transparent',
+          borderBottom: '12px solid transparent',
+          borderRight: `10px solid ${bgColor}`,
+        }}
+      />
+      {/* 직사각형 텍스트 영역 */}
+      <div
+        className="px-3 py-1 text-white text-xs font-medium whitespace-nowrap"
+        style={{
+          backgroundColor: bgColor,
+          borderTop: '1px solid #EF4444',
+          borderRight: '1px solid #EF4444',
+          borderBottom: '1px solid #EF4444',
+          minWidth: '60px',
+        }}
+      >
+        &nbsp;
+      </div>
+    </div>
+  );
+}
 
 interface PDFViewerProps {
   className?: string;
 }
 
 export function PDFViewer({ className = '' }: PDFViewerProps) {
-  const { document, numPages, isLoading, error, getPage, currentPage, goToPage } = usePDF();
-  const { scale, setScale, viewMode, setPageOriginalSize, setContainerSize } = useStore();
+  const { document, documentId, numPages, isLoading, error, getPage, currentPage, goToPage } = usePDF();
+  const {
+    scale,
+    setScale,
+    viewMode,
+    setPageOriginalSize,
+    setContainerSize,
+    isLabelAddMode,
+    pendingLabelPosition,
+    setLabelAddMode,
+    setPendingLabelPosition,
+    addLabel,
+    updateLabel: updateLabelInStore,
+  } = useStore();
   const { isMobile } = useResponsive();
+  const { currentMatchIndex, matches } = useTextSearch();
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
   const [pageLoaded, setPageLoaded] = useState(false);
+  const isScrollingToMatchRef = useRef(false);
+
+  // 마우스 위치 추적 (라벨 추가 모드용)
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+
+  // 팝업 위치 (화면 좌표)
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
 
   // 핀치 줌 (callback ref 반환) - 모바일용
   const pinchZoomRef = usePinchZoom({
@@ -26,9 +89,9 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
     onZoomChange: setScale,
   });
 
-  // 마우스 패닝 (callback ref 반환) - PC용
+  // 마우스 패닝 (callback ref 반환) - PC용 (라벨 추가 모드에서는 비활성화)
   const mousePanRef = useMousePan({
-    enabled: !isMobile,
+    enabled: !isMobile && !isLabelAddMode,
   });
 
   // ref 병합: pagesContainerRef, pinchZoomRef, mousePanRef 모두 연결
@@ -40,6 +103,40 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
     },
     [pinchZoomRef, mousePanRef]
   );
+
+  // 마우스 이동 추적 (라벨 추가 모드)
+  useEffect(() => {
+    if (!isLabelAddMode) {
+      setMousePosition(null);
+      return;
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isLabelAddMode]);
+
+  // 위치 선택 후 팝업 위치 설정
+  useEffect(() => {
+    if (pendingLabelPosition) {
+      // pendingLabelPosition에서 화면 좌표 계산
+      const container = pagesContainerRef.current;
+      if (container) {
+        const pageEl = container.querySelector(`[data-page-number="${pendingLabelPosition.pageNumber}"]`) as HTMLElement;
+        if (pageEl) {
+          const rect = pageEl.getBoundingClientRect();
+          const screenX = rect.left + (pendingLabelPosition.x / 100) * rect.width;
+          const screenY = rect.top + (pendingLabelPosition.y / 100) * rect.height;
+          setPopupPosition({ x: screenX + 20, y: screenY });
+        }
+      }
+    } else {
+      setPopupPosition(null);
+    }
+  }, [pendingLabelPosition]);
 
   // 컨테이너 크기 추적
   useEffect(() => {
@@ -96,12 +193,61 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
     setPageLoaded(false);
   }, [document]);
 
+  // 라벨 클릭 시 해당 페이지로 이동
+  const handleLabelClick = useCallback((label: Label) => {
+    goToPage(label.page_number);
+  }, [goToPage]);
+
+  // 라벨 드래그 종료 시 위치 업데이트
+  const handleLabelDragEnd = useCallback(async (label: Label, newX: number, newY: number) => {
+    try {
+      const updated = await updateLabel(label.id, {
+        position_x: newX,
+        position_y: newY,
+      });
+      updateLabelInStore(label.id, updated);
+    } catch (error) {
+      console.error('라벨 위치 업데이트 실패:', error);
+    }
+  }, [updateLabelInStore]);
+
+  // 라벨 생성
+  const handleCreateLabel = useCallback(async (text: string, color: string) => {
+    if (!documentId || !pendingLabelPosition) return;
+
+    try {
+      const newLabel = await createLabel(
+        documentId,
+        pendingLabelPosition.pageNumber,
+        text,
+        color,
+        pendingLabelPosition.x,
+        pendingLabelPosition.y
+      );
+      addLabel(newLabel);
+      setPendingLabelPosition(null);
+      setPopupPosition(null);
+    } catch (error) {
+      console.error('라벨 추가 실패:', error);
+    }
+  }, [documentId, pendingLabelPosition, addLabel, setPendingLabelPosition]);
+
+  // 라벨 추가 취소
+  const handleCancelLabel = useCallback(() => {
+    setPendingLabelPosition(null);
+    setPopupPosition(null);
+    setLabelAddMode(false);
+  }, [setPendingLabelPosition, setLabelAddMode]);
+
   // 스크롤 시 현재 페이지 감지
   useEffect(() => {
     const container = pagesContainerRef.current;
     if (!container || viewMode !== 'continuous') return;
 
     const handleScroll = () => {
+      // 검색 매치로 스크롤 중이면 페이지 감지 무시
+      if (isScrollingToMatchRef.current) return;
+
       const pages = container.querySelectorAll('[data-page-number]');
       const containerRect = container.getBoundingClientRect();
       const containerCenter = containerRect.top + containerRect.height / 2;
@@ -129,9 +275,12 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
     return () => container.removeEventListener('scroll', handleScroll);
   }, [viewMode, currentPage, goToPage]);
 
-  // 페이지 변경 시 스크롤
+  // 페이지 변경 시 스크롤 (검색 결과가 있으면 매치 스크롤에 위임)
   useEffect(() => {
     if (viewMode !== 'continuous') return;
+    if (isScrollingToMatchRef.current) return; // 매치 스크롤 중이면 무시
+    // 검색 결과가 있으면 매치 스크롤 effect에서 처리하므로 무시
+    if (matches.length > 0 && currentMatchIndex >= 0) return;
 
     const container = pagesContainerRef.current;
     if (!container) return;
@@ -140,7 +289,58 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
     if (pageEl) {
       pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [currentPage, viewMode]);
+  }, [currentPage, viewMode, matches.length, currentMatchIndex]);
+
+  // 검색 매치로 스크롤
+  useEffect(() => {
+    if (currentMatchIndex < 0 || currentMatchIndex >= matches.length) return;
+
+    const container = pagesContainerRef.current;
+    if (!container) return;
+
+    const currentMatch = matches[currentMatchIndex];
+    const targetPageNumber = currentMatch.pageIndex + 1;
+
+    // 매치 스크롤 시작
+    isScrollingToMatchRef.current = true;
+
+    // 페이지 요소를 기반으로 스크롤 위치 계산
+    const scrollToMatch = () => {
+      const pageEl = container.querySelector(`[data-page-number="${targetPageNumber}"]`) as HTMLElement;
+
+      if (!pageEl) {
+        isScrollingToMatchRef.current = false;
+        return;
+      }
+
+      // 페이지 요소의 실제 높이
+      const pageHeight = pageEl.offsetHeight;
+
+      // 매치의 상대 위치를 픽셀로 변환
+      const matchTopInPage = (currentMatch.position.top / 100) * pageHeight;
+      const matchHeight = (currentMatch.position.height / 100) * pageHeight;
+
+      // 매치 중앙이 화면 중앙에 오도록 스크롤 위치 계산
+      const matchCenterInPage = matchTopInPage + matchHeight / 2;
+      const scrollTarget = pageEl.offsetTop + matchCenterInPage - container.clientHeight / 2;
+
+      // 스크롤 실행
+      container.scrollTo({
+        top: Math.max(0, scrollTarget),
+        behavior: 'smooth'
+      });
+
+      // 스크롤 완료 후 플래그 리셋 (여러 페이지 스크롤 시 더 오래 걸릴 수 있음)
+      setTimeout(() => {
+        isScrollingToMatchRef.current = false;
+      }, 1000);
+    };
+
+    // 약간의 딜레이 후 실행 (DOM 업데이트 대기)
+    requestAnimationFrame(() => {
+      scrollToMatch();
+    });
+  }, [currentMatchIndex, matches]);
 
   // 렌더링할 페이지 계산
   const pagesToRender = useMemo(() => {
@@ -189,7 +389,7 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
   }
 
   return (
-    <div ref={containerRef} className={`h-full bg-gray-200 ${className}`}>
+    <div ref={containerRef} className={`h-full bg-gray-200 relative ${className}`}>
       <div
         ref={setRefs}
         className={`pdf-viewer-container h-full overflow-auto p-4 ${
@@ -199,15 +399,29 @@ export function PDFViewer({ className = '' }: PDFViewerProps) {
         {viewMode === 'double' ? (
           <div className="flex gap-4 items-start justify-center">
             {pagesToRender.map((pageNum) => (
-              <PDFPage key={pageNum} pageNumber={pageNum} getPage={getPage} />
+              <PDFPage key={pageNum} pageNumber={pageNum} documentId={documentId} getPage={getPage} onLabelClick={handleLabelClick} onLabelDragEnd={handleLabelDragEnd} />
             ))}
           </div>
         ) : (
           pagesToRender.map((pageNum) => (
-            <PDFPage key={pageNum} pageNumber={pageNum} getPage={getPage} />
+            <PDFPage key={pageNum} pageNumber={pageNum} documentId={documentId} getPage={getPage} onLabelClick={handleLabelClick} onLabelDragEnd={handleLabelDragEnd} />
           ))
         )}
       </div>
+
+      {/* 마우스를 따라다니는 프리뷰 라벨 */}
+      {isLabelAddMode && mousePosition && !pendingLabelPosition && (
+        <GhostLabel x={mousePosition.x} y={mousePosition.y} />
+      )}
+
+      {/* 라벨 입력 팝업 */}
+      {pendingLabelPosition && popupPosition && (
+        <LabelInputPopup
+          position={popupPosition}
+          onSave={handleCreateLabel}
+          onCancel={handleCancelLabel}
+        />
+      )}
     </div>
   );
 }

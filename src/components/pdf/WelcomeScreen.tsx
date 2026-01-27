@@ -1,8 +1,9 @@
-import { FileText, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Clock, Loader2 } from 'lucide-react';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { usePDF } from '../../hooks/usePDF';
 import { useStore } from '../../store';
-import { updateDocumentLastOpened } from '../../api/documents';
+import { getDocuments, updateDocumentLastOpened } from '../../api/documents';
 import type { Document } from '../../types/database.types';
 
 interface WelcomeScreenProps {
@@ -10,12 +11,29 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({ className = '' }: WelcomeScreenProps) {
-  const { documents, getDocUrl } = useDocumentLibrary();
+  const { getDocUrl } = useDocumentLibrary();
   const { loadDocument } = usePDF();
   const { setCurrentDocumentTitle } = useStore();
+  const [allDocuments, setAllDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 모든 문서 로드 (폴더 상관없이)
+  useEffect(() => {
+    async function loadAllDocs() {
+      try {
+        const docs = await getDocuments();
+        setAllDocuments(docs);
+      } catch (error) {
+        console.error('문서 로드 실패:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadAllDocs();
+  }, []);
 
   // 최근 연 순서로 정렬 (updated_at 기준)
-  const sortedDocuments = [...documents].sort(
+  const sortedDocuments = [...allDocuments].sort(
     (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
 
@@ -65,8 +83,17 @@ export function WelcomeScreen({ className = '' }: WelcomeScreenProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // 로딩 중
+  if (isLoading) {
+    return (
+      <div className={`flex items-center justify-center h-full bg-gray-100 ${className}`}>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
   // 문서가 없으면 기존 메시지 표시
-  if (documents.length === 0) {
+  if (allDocuments.length === 0) {
     return (
       <div className={`flex items-center justify-center h-full bg-gray-100 ${className}`}>
         <div className="text-gray-500 text-center">
@@ -85,7 +112,7 @@ export function WelcomeScreen({ className = '' }: WelcomeScreenProps) {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800">최근 문서</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {documents.length}개의 문서
+            {allDocuments.length}개의 문서
           </p>
         </div>
 

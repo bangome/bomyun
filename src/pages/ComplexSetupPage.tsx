@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, KeyRound, Plus, Loader2 } from 'lucide-react';
 import { useComplex } from '../hooks/useComplex';
 
@@ -11,6 +11,32 @@ export function ComplexSetupPage() {
   const [complexName, setComplexName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 저장된 초대 코드 확인 (초대 링크로 접근 후 로그인한 경우)
+  useEffect(() => {
+    const pendingCode = localStorage.getItem('pendingInviteCode');
+    if (pendingCode) {
+      setInviteCode(pendingCode);
+      setMode('join');
+      // 자동 가입 시도
+      handleAutoJoin(pendingCode);
+    }
+  }, []);
+
+  const handleAutoJoin = async (code: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await joinWithInviteCode(code.toUpperCase());
+      localStorage.removeItem('pendingInviteCode');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '단지 가입에 실패했습니다.');
+      localStorage.removeItem('pendingInviteCode');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();

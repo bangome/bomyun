@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { useStore } from '../store';
 import { getLabels } from '../api/labels';
-import { getBookmarks } from '../api/bookmarks';
+import { getPageNames } from '../api/pageNames';
 import { getDocument as getDocumentFromDB, updateDocumentRotation } from '../api/documents';
 
 // PDF.js Worker 설정
@@ -25,7 +25,7 @@ export function usePDF() {
     setError,
     resetDocument,
     setLabels,
-    setBookmarks,
+    setPageNames,
     currentPage,
     setCurrentPage,
     setRotation,
@@ -46,11 +46,11 @@ export function usePDF() {
         const pdf = await loadingTask.promise;
         setDocument(pdf, id, url);
 
-        // 문서 정보, 라벨, 북마크 로드
-        const [docInfo, labels, bookmarks] = await Promise.all([
+        // 문서 정보, 라벨, 페이지 이름 로드
+        const [docInfo, labels, pageNames] = await Promise.all([
           getDocumentFromDB(id),
           getLabels(id),
-          getBookmarks(id),
+          getPageNames(id),
         ]);
 
         // 저장된 회전 정보 적용
@@ -61,7 +61,7 @@ export function usePDF() {
         }
 
         setLabels(labels);
-        setBookmarks(bookmarks);
+        setPageNames(pageNames);
       } catch (err) {
         console.error('PDF 로드 실패:', err);
         setError(err instanceof Error ? err : new Error('PDF 로드 실패'));
@@ -69,7 +69,7 @@ export function usePDF() {
         setLoading(false);
       }
     },
-    [setDocument, setLoading, setError, setLabels, setBookmarks, setRotation]
+    [setDocument, setLoading, setError, setLabels, setPageNames, setRotation]
   );
 
   const loadFromFile = useCallback(

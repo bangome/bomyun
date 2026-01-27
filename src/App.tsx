@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ComplexProvider } from './contexts/ComplexContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { JoinPage } from './pages/JoinPage';
 import { ComplexSetupPage } from './pages/ComplexSetupPage';
 import { AppLayout } from './components/layout/AppLayout';
 import { PDFViewer } from './components/pdf/PDFViewer';
@@ -51,10 +53,20 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route
+              path="/join/:inviteCode"
+              element={
+                <ProtectedRoute>
+                  <JoinPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/*"
               element={
                 <ProtectedRoute>
-                  <MainApp />
+                  <ComplexProvider>
+                    <MainApp />
+                  </ComplexProvider>
                 </ProtectedRoute>
               }
             />

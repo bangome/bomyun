@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { X, Tag, Bookmark, Search } from 'lucide-react';
+import { X, Tag, Search, FileText } from 'lucide-react';
 import { useStore } from '../../store';
 import { useResponsive } from '../../hooks/useResponsive';
 import { LabelManager } from '../labels/LabelManager';
-import { BookmarkList } from '../bookmarks/BookmarkList';
 import { GlobalLabelSearch } from '../search/GlobalLabelSearch';
+import { PageList } from '../pages/PageList';
 
-type TabType = 'labels' | 'bookmarks' | 'search';
+type TabType = 'pages' | 'labels' | 'search';
 
 interface SidebarProps {
   className?: string;
@@ -15,16 +15,16 @@ interface SidebarProps {
 export function Sidebar({ className = '' }: SidebarProps) {
   const { isSidebarOpen, toggleSidebar } = useStore();
   const { isMobile, isTablet } = useResponsive();
-  const [activeTab, setActiveTab] = useState<TabType>('labels');
+  const [activeTab, setActiveTab] = useState<TabType>('pages');
 
   const isOverlay = isMobile || isTablet;
 
   if (!isSidebarOpen) return null;
 
   const tabs = [
+    { id: 'pages' as const, label: '페이지', icon: FileText },
     { id: 'labels' as const, label: '라벨', icon: Tag },
-    { id: 'bookmarks' as const, label: '북마크', icon: Bookmark },
-    { id: 'search' as const, label: '전역 검색', icon: Search },
+    { id: 'search' as const, label: '검색', icon: Search },
   ];
 
   return (
@@ -80,8 +80,8 @@ export function Sidebar({ className = '' }: SidebarProps) {
 
         {/* 콘텐츠 */}
         <div className="flex-1 overflow-hidden">
+          {activeTab === 'pages' && <PageList />}
           {activeTab === 'labels' && <LabelManager />}
-          {activeTab === 'bookmarks' && <BookmarkList />}
           {activeTab === 'search' && <GlobalLabelSearch />}
         </div>
       </aside>
