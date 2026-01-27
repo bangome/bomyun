@@ -12,7 +12,6 @@ interface DocumentCardProps {
   onOpen: (doc: Document) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, doc: Document) => void;
-  onLongPress?: (doc: Document) => void;
   onTouchDragStart?: (doc: Document, touch: React.Touch) => void;
   onTouchDragMove?: (touch: React.Touch) => void;
   onTouchDragEnd?: () => void;
@@ -28,14 +27,11 @@ export function DocumentCard({
   onOpen,
   onDelete,
   onDragStart,
-  onLongPress,
   onTouchDragStart,
   onTouchDragMove,
   onTouchDragEnd,
 }: DocumentCardProps) {
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const isLongPressTriggered = useRef(false);
   const isDragging = useRef(false);
 
   const formatDate = (dateString: string) => {
@@ -83,33 +79,15 @@ export function DocumentCard({
   };
 
   // 터치 이벤트 핸들러 (모바일용)
-  // 동작: 터치→선택, 선택된 상태에서 터치→실행, 선택된 상태에서 드래그→폴더이동
+  // 일반 모드: 터치→실행
+  // 선택 모드: 터치→선택/해제, 선택된 문서 드래그→폴더이동
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!isMobile) return;
 
     const touch = e.touches[0];
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    isLongPressTriggered.current = false;
     isDragging.current = false;
-
-    // 선택된 문서를 터치하면 드래그 가능 상태 준비
-    // 롱프레스 타이머는 선택되지 않은 문서에서만 사용
-    if (!isSelected) {
-      longPressTimer.current = setTimeout(() => {
-        isLongPressTriggered.current = true;
-
-        // 진동 피드백 (지원하는 경우)
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-
-        // 선택 모드 진입 및 선택
-        if (onLongPress) {
-          onLongPress(document);
-        }
-      }, 500);
-    }
-  }, [isMobile, isSelected, document, onLongPress]);
+  }, [isMobile]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isMobile || !touchStartPos.current) return;
@@ -118,16 +96,9 @@ export function DocumentCard({
     const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
     const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
 
-    // 10px 이상 이동하면
-    if (deltaX > 10 || deltaY > 10) {
-      // 롱프레스 타이머 취소
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
-
-      // 선택된 문서를 드래그하면 드래그 시작
-      if (isSelected && !isDragging.current && onTouchDragStart) {
+    // 선택 모드에서 선택된 문서를 10px 이상 드래그하면 이동 시작
+    if (isSelectionMode && isSelected && (deltaX > 10 || deltaY > 10)) {
+      if (!isDragging.current && onTouchDragStart) {
         isDragging.current = true;
 
         // 진동 피드백
@@ -144,16 +115,10 @@ export function DocumentCard({
       e.preventDefault();
       onTouchDragMove(touch);
     }
-  }, [isMobile, isSelected, document, onTouchDragStart, onTouchDragMove]);
+  }, [isMobile, isSelectionMode, isSelected, document, onTouchDragStart, onTouchDragMove]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!isMobile) return;
-
-    // 타이머 취소
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
 
     // 드래그 종료
     if (isDragging.current && onTouchDragEnd) {
@@ -163,20 +128,17 @@ export function DocumentCard({
       return;
     }
 
-    // 롱프레스가 발생하지 않은 짧은 터치
-    if (!isLongPressTriggered.current) {
-      // 이미 선택된 문서를 터치하면 실행
-      if (isSelected) {
-        onOpen(document);
-      } else {
-        // 선택되지 않은 문서를 터치하면 선택
-        onSelect(document, e as any);
-      }
+    // 짧은 터치
+    if (isSelectionMode) {
+      // 선택 모드: 선택/해제 (실행 안함)
+      onSelect(document, e as any);
+    } else {
+      // 일반 모드: 바로 실행
+      onOpen(document);
     }
 
     touchStartPos.current = null;
-    isLongPressTriggered.current = false;
-  }, [isMobile, isSelected, document, onSelect, onOpen, onTouchDragEnd]);
+  }, [isMobile, isSelectionMode, document, onSelect, onOpen, onTouchDragEnd]);
 
   return (
     <div

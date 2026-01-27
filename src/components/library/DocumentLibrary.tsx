@@ -41,6 +41,9 @@ export function DocumentLibrary() {
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [isDragOverParent, setIsDragOverParent] = useState(false);
 
+  // 모바일 선택 모드
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
   // 모바일 터치 드래그 상태
   const [touchDragDoc, setTouchDragDoc] = useState<Document | null>(null);
   const [touchDragPosition, setTouchDragPosition] = useState<{ x: number; y: number } | null>(null);
@@ -62,11 +65,15 @@ export function DocumentLibrary() {
 
   // 문서 선택 핸들러
   const handleSelectDocument = useCallback((doc: Document, e: React.MouseEvent) => {
-    // 모바일: 터치하면 선택에 추가
-    if (isMobileOrTablet) {
+    // 모바일 선택 모드: 토글 선택
+    if (isMobileOrTablet && isSelectionMode) {
       setSelectedIds(prev => {
         const newSet = new Set(prev);
-        newSet.add(doc.id);
+        if (newSet.has(doc.id)) {
+          newSet.delete(doc.id);
+        } else {
+          newSet.add(doc.id);
+        }
         return newSet;
       });
       return;
@@ -105,19 +112,23 @@ export function DocumentLibrary() {
       setSelectedIds(new Set([doc.id]));
       setLastSelectedId(doc.id);
     }
-  }, [filteredDocuments, lastSelectedId, isMobileOrTablet]);
+  }, [filteredDocuments, lastSelectedId, isMobileOrTablet, isSelectionMode]);
 
-  // 모바일: 롱프레스로 선택 (동일 동작, 진동 피드백은 DocumentCard에서 처리)
-  const handleLongPress = useCallback((doc: Document) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      newSet.add(doc.id);
-      return newSet;
-    });
-  }, []);
+  // 모바일: 선택 모드 토글
+  const handleToggleSelectionMode = useCallback(() => {
+    if (isSelectionMode) {
+      // 선택 모드 종료
+      setIsSelectionMode(false);
+      setSelectedIds(new Set());
+    } else {
+      // 선택 모드 시작
+      setIsSelectionMode(true);
+    }
+  }, [isSelectionMode]);
 
-  // 모바일: 선택 취소
+  // 모바일: 선택 모드 종료
   const handleCancelSelectionMode = useCallback(() => {
+    setIsSelectionMode(false);
     setSelectedIds(new Set());
   }, []);
 
@@ -555,8 +566,8 @@ export function DocumentLibrary() {
           )}
         </div>
 
-        {/* 모바일 선택 헤더 */}
-        {isMobileOrTablet && selectedIds.size > 0 && (
+        {/* 모바일 선택 모드 헤더 */}
+        {isMobileOrTablet && isSelectionMode && (
           <div className="px-4 py-2 bg-primary-50 border-b flex items-center justify-between">
             <span className="text-sm font-medium text-primary-700">
               {selectedIds.size}개 선택됨
@@ -645,13 +656,12 @@ export function DocumentLibrary() {
                   document={doc}
                   isActive={doc.id === documentId}
                   isSelected={selectedIds.has(doc.id)}
-                  isSelectionMode={selectedIds.size > 0}
+                  isSelectionMode={isSelectionMode}
                   isMobile={isMobileOrTablet}
                   onSelect={handleSelectDocument}
                   onOpen={handleOpenDocument}
                   onDelete={handleDeleteDocument}
                   onDragStart={handleDragStart}
-                  onLongPress={handleLongPress}
                   onTouchDragStart={handleTouchDragStart}
                   onTouchDragMove={handleTouchDragMove}
                   onTouchDragEnd={handleTouchDragEnd}
@@ -662,10 +672,25 @@ export function DocumentLibrary() {
         </div>
 
         {/* 푸터 */}
-        <div className="p-4 border-t text-sm text-gray-500 text-center">
-          {folders.length}개 폴더, {documents.length}개 문서
-          {selectedIds.size > 0 && (
-            <span className="ml-2 text-primary-600">• {selectedIds.size}개 선택됨</span>
+        <div className="p-4 border-t flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            {folders.length}개 폴더, {documents.length}개 문서
+            {selectedIds.size > 0 && (
+              <span className="ml-2 text-primary-600">• {selectedIds.size}개 선택됨</span>
+            )}
+          </span>
+          {/* 모바일 다중선택 버튼 */}
+          {isMobileOrTablet && documents.length > 0 && (
+            <button
+              onClick={handleToggleSelectionMode}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                isSelectionMode
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {isSelectionMode ? '선택 완료' : '다중선택'}
+            </button>
           )}
         </div>
       </div>
