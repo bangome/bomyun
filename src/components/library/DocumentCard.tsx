@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { FileText, Trash2, ExternalLink, GripVertical, Check } from 'lucide-react';
 import type { Document } from '../../types/database.types';
 
@@ -24,6 +25,7 @@ export function DocumentCard({
   onDelete,
   onDragStart,
 }: DocumentCardProps) {
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -68,10 +70,32 @@ export function DocumentCard({
   };
 
   // 모바일 터치 핸들러
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+  };
+
   // 일반 모드: 터치 → 실행
   // 선택 모드: 터치 → 선택/해제
+  // 스크롤(드래그)인 경우 동작 안함
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!isMobile) return;
+
+    // 스크롤인지 확인 (10px 이상 이동했으면 스크롤로 간주)
+    if (touchStartPos.current && e.changedTouches[0]) {
+      const touch = e.changedTouches[0];
+      const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+      const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+
+      if (dx > 10 || dy > 10) {
+        // 스크롤이므로 선택/실행하지 않음
+        touchStartPos.current = null;
+        return;
+      }
+    }
+
+    touchStartPos.current = null;
 
     if (isSelectionMode) {
       // 선택 모드: 선택/해제 (실행 안함)
@@ -88,6 +112,7 @@ export function DocumentCard({
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onDragStart={handleDragStart}
+      onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       className={`
         group p-4 rounded-lg border cursor-pointer transition-all select-none

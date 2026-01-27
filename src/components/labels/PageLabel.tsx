@@ -33,7 +33,7 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
     }
   }, [label.position_x, label.position_y, isDragging]);
 
-  // 드래그 시작
+  // 드래그 시작 (마우스)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -54,11 +54,31 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
     setIsDragging(true);
   }, []);
 
+  // 드래그 시작 (터치)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+
+    const labelEl = labelRef.current;
+    if (!labelEl) return;
+
+    const touch = e.touches[0];
+    const labelRect = labelEl.getBoundingClientRect();
+
+    setDragOffset({
+      x: touch.clientX - labelRect.left,
+      y: touch.clientY - labelRect.top,
+    });
+
+    dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+    hasDraggedRef.current = false;
+    setIsDragging(true);
+  }, []);
+
   // 드래그 중
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const updatePosition = (clientX: number, clientY: number) => {
       const labelEl = labelRef.current;
       if (!labelEl) return;
 
@@ -67,8 +87,8 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
 
       // 이동 거리 확인 (5px 이상 이동해야 드래그로 인식)
       if (dragStartRef.current) {
-        const dx = Math.abs(e.clientX - dragStartRef.current.x);
-        const dy = Math.abs(e.clientY - dragStartRef.current.y);
+        const dx = Math.abs(clientX - dragStartRef.current.x);
+        const dy = Math.abs(clientY - dragStartRef.current.y);
         if (dx > 5 || dy > 5) {
           hasDraggedRef.current = true;
         }
@@ -77,8 +97,8 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
       const parentRect = parentEl.getBoundingClientRect();
 
       // 새 위치 계산 (퍼센트)
-      const newX = ((e.clientX - dragOffset.x - parentRect.left) / parentRect.width) * 100;
-      const newY = ((e.clientY - dragOffset.y + 12 - parentRect.top) / parentRect.height) * 100; // +12는 라벨 높이의 절반 (translateY(-50%) 보정)
+      const newX = ((clientX - dragOffset.x - parentRect.left) / parentRect.width) * 100;
+      const newY = ((clientY - dragOffset.y + 12 - parentRect.top) / parentRect.height) * 100;
 
       // 경계 제한 (0-100%)
       setCurrentPosition({
@@ -87,7 +107,18 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
       });
     };
 
-    const handleMouseUp = () => {
+    const handleMouseMove = (e: MouseEvent) => {
+      updatePosition(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // 스크롤 방지
+      e.preventDefault();
+      const touch = e.touches[0];
+      updatePosition(touch.clientX, touch.clientY);
+    };
+
+    const handleEnd = () => {
       setIsDragging(false);
 
       // 드래그가 실제로 발생했으면 위치 업데이트
@@ -99,11 +130,15 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
     };
 
     document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleEnd);
     };
   }, [isDragging, dragOffset, label, currentPosition, onDragEnd]);
 
@@ -132,6 +167,7 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
         transform: 'translateY(-50%)',
       }}
       onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
       onClick={handleClick}
     >
       {/* 왼쪽 뾰족한 부분 */}
