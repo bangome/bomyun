@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp } from 'lucide-react';
+import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp, XCircle } from 'lucide-react';
 import { useStore } from '../../store';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { usePDF } from '../../hooks/usePDF';
+import { useResponsive } from '../../hooks/useResponsive';
 import { DocumentCard } from './DocumentCard';
 import { FolderCard } from './FolderCard';
 import { updateDocumentPageCount, updateDocumentLastOpened } from '../../api/documents';
@@ -27,6 +28,7 @@ export function DocumentLibrary() {
   } = useDocumentLibrary();
   const { loadDocument, documentId } = usePDF();
   const { setCurrentDocumentTitle } = useStore();
+  const { isMobile, isTablet } = useResponsive();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -39,7 +41,18 @@ export function DocumentLibrary() {
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [isDragOverParent, setIsDragOverParent] = useState(false);
 
+  // 모바일 선택 모드
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  // 모바일 터치 드래그 상태
+  const [touchDragDoc, setTouchDragDoc] = useState<Document | null>(null);
+  const [touchDragPosition, setTouchDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const [touchDragOverFolder, setTouchDragOverFolder] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const isMobileOrTablet = isMobile || isTablet;
 
   // 필터링된 데이터 (useMemo 대신 일반 변수로 처리)
   const filteredDocuments = documents.filter((doc) =>
@@ -52,6 +65,24 @@ export function DocumentLibrary() {
 
   // 문서 선택 핸들러
   const handleSelectDocument = useCallback((doc: Document, e: React.MouseEvent) => {
+    // 모바일 선택 모드에서의 처리
+    if (isMobileOrTablet && isSelectionMode) {
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(doc.id)) {
+          newSet.delete(doc.id);
+        } else {
+          newSet.add(doc.id);
+        }
+        // 선택된 항목이 없으면 선택 모드 종료
+        if (newSet.size === 0) {
+          setIsSelectionMode(false);
+        }
+        return newSet;
+      });
+      return;
+    }
+
     const docIndex = filteredDocuments.findIndex(d => d.id === doc.id);
 
     if (e.ctrlKey || e.metaKey) {
@@ -84,7 +115,119 @@ export function DocumentLibrary() {
       setSelectedIds(new Set([doc.id]));
       setLastSelectedId(doc.id);
     }
-  }, [filteredDocuments, lastSelectedId]);
+  }, [filteredDocuments, lastSelectedId, isMobileOrTablet, isSelectionMode]);
+
+  // 모바일: 롱프레스로 선택 모드 진입
+  const handleLongPress = useCallback((doc: Document) => {
+    setIsSelectionMode(true);
+    setSelectedIds(new Set([doc.id]));
+  }, []);
+
+  // 모바일: 선택 모드 종료
+  const handleCancelSelectionMode = useCallback(() => {
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  // 모바일: 터치 드래그 시작
+  const handleTouchDragStart = useCallback((doc: Document, touch: React.Touch) => {
+    // 선택된 문서가 있으면 선택된 것들 모두, 없으면 현재 문서만
+    if (!selectedIds.has(doc.id)) {
+      setSelectedIds(new Set([doc.id]));
+    }
+    setTouchDragDoc(doc);
+    setTouchDragPosition({ x: touch.clientX, y: touch.clientY });
+  }, [selectedIds]);
+
+  // 모바일: 터치 드래그 이동
+  const handleTouchDragMove = useCallback((touch: React.Touch) => {
+    setTouchDragPosition({ x: touch.clientX, y: touch.clientY });
+
+    // 드래그 위치에 있는 폴더 찾기
+    const container = listContainerRef.current;
+    if (!container) return;
+
+    const folderElements = container.querySelectorAll('[data-folder-id]');
+    let foundFolderId: string | null = null;
+
+    folderElements.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom
+      ) {
+        foundFolderId = el.getAttribute('data-folder-id');
+      }
+    });
+
+    // 상위 폴더 영역 확인
+    const parentEl = container.querySelector('[data-parent-folder]');
+    if (parentEl) {
+      const rect = parentEl.getBoundingClientRect();
+      if (
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom
+      ) {
+        foundFolderId = 'parent';
+      }
+    }
+
+    setTouchDragOverFolder(foundFolderId);
+  }, []);
+
+  // 모바일: 터치 드래그 종료
+  const handleTouchDragEnd = useCallback(async () => {
+    if (!touchDragDoc) {
+      setTouchDragPosition(null);
+      setTouchDragOverFolder(null);
+      return;
+    }
+
+    const docIds = Array.from(selectedIds);
+    if (docIds.length === 0) {
+      docIds.push(touchDragDoc.id);
+    }
+
+    // 폴더에 드롭
+    if (touchDragOverFolder && touchDragOverFolder !== 'parent') {
+      try {
+        for (const docId of docIds) {
+          await moveDocumentToFolder(docId, touchDragOverFolder);
+        }
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+        loadCurrentFolder();
+      } catch (error) {
+        console.error('이동 실패:', error);
+        alert('문서 이동에 실패했습니다.');
+      }
+    } else if (touchDragOverFolder === 'parent' && currentFolderId) {
+      // 상위 폴더로 이동
+      const parentFolderId = folderPath.length > 1
+        ? folderPath[folderPath.length - 2].id
+        : null;
+
+      try {
+        for (const docId of docIds) {
+          await moveDocumentToFolder(docId, parentFolderId);
+        }
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+        loadCurrentFolder();
+      } catch (error) {
+        console.error('이동 실패:', error);
+        alert('문서 이동에 실패했습니다.');
+      }
+    }
+
+    setTouchDragDoc(null);
+    setTouchDragPosition(null);
+    setTouchDragOverFolder(null);
+  }, [touchDragDoc, touchDragOverFolder, selectedIds, currentFolderId, folderPath, moveDocumentToFolder, loadCurrentFolder]);
 
   // 드래그 시작
   const handleDragStart = useCallback((e: React.DragEvent, doc: Document) => {
@@ -422,8 +565,25 @@ export function DocumentLibrary() {
           )}
         </div>
 
+        {/* 모바일 선택 모드 헤더 */}
+        {isMobileOrTablet && isSelectionMode && (
+          <div className="px-4 py-2 bg-primary-50 border-b flex items-center justify-between">
+            <span className="text-sm font-medium text-primary-700">
+              {selectedIds.size}개 선택됨
+            </span>
+            <button
+              onClick={handleCancelSelectionMode}
+              className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-lg"
+            >
+              <XCircle className="w-4 h-4" />
+              취소
+            </button>
+          </div>
+        )}
+
         {/* 폴더 및 문서 목록 */}
         <div
+          ref={listContainerRef}
           className="flex-1 overflow-y-auto p-4"
           onClick={handleBackgroundClick}
         >
@@ -436,6 +596,7 @@ export function DocumentLibrary() {
               {/* 상위 폴더로 이동 (클릭 및 드롭 타겟) */}
               {currentFolderId && (
                 <div
+                  data-parent-folder="true"
                   onClick={() => {
                     setSelectedIds(new Set());
                     // 상위 폴더로 이동: folderPath에서 마지막 이전 항목, 없으면 루트(null)
@@ -456,14 +617,14 @@ export function DocumentLibrary() {
                   }}
                   className={`
                     flex items-center gap-3 p-3 rounded-lg border border-dashed cursor-pointer transition-all
-                    ${isDragOverParent
+                    ${isDragOverParent || touchDragOverFolder === 'parent'
                       ? 'border-primary-500 bg-primary-100'
                       : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                     }
                   `}
                 >
-                  <ArrowUp className={`w-5 h-5 ${isDragOverParent ? 'text-primary-500' : 'text-gray-400'}`} />
-                  <span className={`text-sm ${isDragOverParent ? 'text-primary-600' : 'text-gray-500'}`}>
+                  <ArrowUp className={`w-5 h-5 ${isDragOverParent || touchDragOverFolder === 'parent' ? 'text-primary-500' : 'text-gray-400'}`} />
+                  <span className={`text-sm ${isDragOverParent || touchDragOverFolder === 'parent' ? 'text-primary-600' : 'text-gray-500'}`}>
                     상위 폴더로 이동
                   </span>
                 </div>
@@ -478,6 +639,7 @@ export function DocumentLibrary() {
                   onRename={handleRenameFolder}
                   onDelete={handleDeleteFolder}
                   onDrop={handleDropToFolder}
+                  isTouchDragOver={touchDragOverFolder === folder.id}
                 />
               ))}
 
@@ -493,10 +655,16 @@ export function DocumentLibrary() {
                   document={doc}
                   isActive={doc.id === documentId}
                   isSelected={selectedIds.has(doc.id)}
+                  isSelectionMode={isSelectionMode}
+                  isMobile={isMobileOrTablet}
                   onSelect={handleSelectDocument}
                   onOpen={handleOpenDocument}
                   onDelete={handleDeleteDocument}
                   onDragStart={handleDragStart}
+                  onLongPress={handleLongPress}
+                  onTouchDragStart={handleTouchDragStart}
+                  onTouchDragMove={handleTouchDragMove}
+                  onTouchDragEnd={handleTouchDragEnd}
                 />
               ))}
             </div>
@@ -511,6 +679,21 @@ export function DocumentLibrary() {
           )}
         </div>
       </div>
+
+      {/* 터치 드래그 고스트 요소 */}
+      {touchDragDoc && touchDragPosition && (
+        <div
+          className="fixed z-[100] pointer-events-none"
+          style={{
+            left: touchDragPosition.x - 40,
+            top: touchDragPosition.y - 20,
+          }}
+        >
+          <div className="bg-primary-500 text-white px-3 py-2 rounded-lg shadow-xl text-sm font-medium opacity-90">
+            {selectedIds.size > 1 ? `${selectedIds.size}개 파일` : touchDragDoc.title}
+          </div>
+        </div>
+      )}
     </>
   );
 }

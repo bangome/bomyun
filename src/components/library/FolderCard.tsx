@@ -8,9 +8,10 @@ interface FolderCardProps {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onDrop: (folderId: string, e: React.DragEvent) => void;
+  isTouchDragOver?: boolean;
 }
 
-export function FolderCard({ folder, onOpen, onRename, onDelete, onDrop }: FolderCardProps) {
+export function FolderCard({ folder, onOpen, onRename, onDelete, onDrop, isTouchDragOver }: FolderCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
@@ -51,21 +52,24 @@ export function FolderCard({ folder, onOpen, onRename, onDelete, onDrop }: Folde
     onDrop(folder.id, e);
   };
 
+  const isHighlighted = isDragOver || isTouchDragOver;
+
   return (
     <div
+      data-folder-id={folder.id}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={() => !isEditing && onOpen(folder)}
       className={`
         group flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all
-        ${isDragOver
+        ${isHighlighted
           ? 'border-primary-500 bg-primary-100 ring-2 ring-primary-300'
           : 'bg-amber-50 border-amber-200 hover:border-amber-400'
         }
       `}
     >
-      <FolderIcon className={`w-8 h-8 flex-shrink-0 ${isDragOver ? 'text-primary-500' : 'text-amber-500'}`} />
+      <FolderIcon className={`w-8 h-8 flex-shrink-0 ${isHighlighted ? 'text-primary-500' : 'text-amber-500'}`} />
 
       <div className="flex-1 min-w-0">
         {isEditing ? (
