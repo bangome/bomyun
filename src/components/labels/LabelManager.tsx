@@ -111,12 +111,18 @@ export function LabelManager() {
 
   // 라벨 추가 모드 시작 (위치 선택 모드)
   const handleStartAddMode = useCallback(() => {
-    setLabelAddMode(true);
-    setPendingLabelPosition(null);
     setEditingLabel(null);
-    // 모바일에서는 사이드바를 닫아서 PDF를 볼 수 있게 함
+
     if (isMobile) {
+      // 모바일: 현재 페이지 중앙에 바로 배치 후 사이드바 닫기
+      const currentPage = useStore.getState().currentPage;
+      setPendingLabelPosition({ pageNumber: currentPage, x: 50, y: 50 });
+      setLabelAddMode(false);
       toggleSidebar();
+    } else {
+      // PC: 위치 선택 모드
+      setLabelAddMode(true);
+      setPendingLabelPosition(null);
     }
   }, [setLabelAddMode, setPendingLabelPosition, isMobile, toggleSidebar]);
 
