@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2 } from 'lucide-react';
+import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X } from 'lucide-react';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -26,6 +26,7 @@ export function Header() {
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
 
   const handleCopyInviteCode = async () => {
@@ -53,15 +54,20 @@ export function Header() {
       const sharedLink = await createSharedLink(documentId);
       const url = getShareUrl(sharedLink.short_code);
       setShareUrl(url);
-      await navigator.clipboard.writeText(url);
-      setCopiedShareLink(true);
-      setTimeout(() => setCopiedShareLink(false), 3000);
+      setIsShareModalOpen(true);
     } catch (error) {
       console.error('공유 링크 생성 실패:', error);
       alert('공유 링크를 생성할 수 없습니다.');
     } finally {
       setIsSharing(false);
     }
+  };
+
+  const handleCopyShareUrl = async () => {
+    if (!shareUrl) return;
+    await navigator.clipboard.writeText(shareUrl);
+    setCopiedShareLink(true);
+    setTimeout(() => setCopiedShareLink(false), 2000);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,37 +181,10 @@ export function Header() {
         {currentDocumentTitle && !isMobile && (
           <>
             <div className="w-px h-8 bg-gray-200" />
-            <span className="text-sm text-gray-600 truncate max-w-40" title={currentDocumentTitle}>
+            <span className="text-sm text-gray-600">
               {currentDocumentTitle}
             </span>
           </>
-        )}
-
-        {/* 공유 버튼 */}
-        {document && documentId && documentId !== 'local' && (
-          <button
-            onClick={handleShare}
-            disabled={isSharing}
-            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors ${
-              copiedShareLink
-                ? 'bg-green-100 text-green-700 border border-green-300'
-                : 'border border-gray-300 hover:bg-gray-50'
-            } disabled:opacity-50`}
-            title={shareUrl || '공유 링크 생성'}
-          >
-            {isSharing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : copiedShareLink ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <Share2 className="w-4 h-4" />
-            )}
-            {!isMobile && (
-              <span className="text-sm">
-                {copiedShareLink ? '복사됨' : '공유'}
-              </span>
-            )}
-          </button>
         )}
 
         {/* 스페이서 */}
@@ -234,6 +213,75 @@ export function Header() {
               <option value="continuous">연속 스크롤</option>
               <option value="double">양면 보기</option>
             </select>
+          </>
+        )}
+
+        {/* 공유 버튼 */}
+        {document && documentId && documentId !== 'local' && (
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            title="공유 링크 생성"
+          >
+            {isSharing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Share2 className="w-4 h-4" />
+            )}
+            {!isMobile && <span className="text-sm">공유</span>}
+          </button>
+        )}
+
+        {/* 공유 모달 */}
+        {isShareModalOpen && shareUrl && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => setIsShareModalOpen(false)}
+            />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl z-50 w-[90%] max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">문서 공유</h3>
+                <button
+                  onClick={() => setIsShareModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                아래 링크를 통해 문서를 공유할 수 있습니다. (읽기 전용)
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={shareUrl}
+                  readOnly
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
+                />
+                <button
+                  onClick={handleCopyShareUrl}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-colors ${
+                    copiedShareLink
+                      ? 'bg-green-500 text-white'
+                      : 'bg-primary-500 text-white hover:bg-primary-600'
+                  }`}
+                >
+                  {copiedShareLink ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span className="text-sm">복사됨</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span className="text-sm">복사</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </>
         )}
 

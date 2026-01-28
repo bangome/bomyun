@@ -13,10 +13,11 @@ interface PDFPageProps {
   documentId: string | null;
   getPage: (pageNumber: number) => Promise<PDFPageProxy | null>;
   onLabelClick?: (label: Label) => void;
+  onLabelDoubleClick?: (label: Label) => void;
   onLabelDragEnd?: (label: Label, newX: number, newY: number) => void;
 }
 
-export const PDFPage = memo(function PDFPage({ pageNumber, documentId, getPage, onLabelClick, onLabelDragEnd }: PDFPageProps) {
+export const PDFPage = memo(function PDFPage({ pageNumber, documentId, getPage, onLabelClick, onLabelDoubleClick, onLabelDragEnd }: PDFPageProps) {
   const { scale, rotation, labels, isLabelAddMode, pendingLabelPosition, setLabelAddMode, setPendingLabelPosition } = useStore();
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -151,6 +152,7 @@ export const PDFPage = memo(function PDFPage({ pageNumber, documentId, getPage, 
           key={label.id}
           label={label}
           onClick={onLabelClick}
+          onDoubleClick={onLabelDoubleClick}
           onDragEnd={onLabelDragEnd}
         />
       ))}

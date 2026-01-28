@@ -9,6 +9,7 @@ import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { PDFPage } from './PDFPage';
 import { WelcomeScreen } from './WelcomeScreen';
 import { LabelInputPopup } from '../labels/LabelInputPopup';
+import { LabelEditModal } from '../labels/LabelEditModal';
 import { PageNavigation } from './controls/PageNavigation';
 import { ZoomControls } from './controls/ZoomControls';
 import { Loader2 } from 'lucide-react';
@@ -96,6 +97,9 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
 
   // 팝업 위치 (화면 좌표)
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // 수정할 라벨
+  const [editingLabel, setEditingLabel] = useState<Label | null>(null);
 
   // 핀치 줌 (callback ref 반환) - 모바일용
   const pinchZoomRef = usePinchZoom({
@@ -223,6 +227,17 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
     } catch (error) {
       console.error('라벨 위치 업데이트 실패:', error);
     }
+  }, [updateLabelInStore]);
+
+  // 라벨 더블클릭 시 수정 모달 열기
+  const handleLabelDoubleClick = useCallback((label: Label) => {
+    setEditingLabel(label);
+  }, []);
+
+  // 라벨 수정 저장
+  const handleSaveLabel = useCallback(async (labelId: string, text: string, color: string) => {
+    const updated = await updateLabel(labelId, { text, color });
+    updateLabelInStore(labelId, updated);
   }, [updateLabelInStore]);
 
   // 라벨 생성
@@ -422,12 +437,12 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
         {viewMode === 'double' ? (
           <div className="flex gap-4 items-start justify-center">
             {pagesToRender.map((pageNum) => (
-              <PDFPage key={pageNum} pageNumber={pageNum} documentId={documentId} getPage={getPage} onLabelClick={handleLabelClick} onLabelDragEnd={handleLabelDragEnd} />
+              <PDFPage key={pageNum} pageNumber={pageNum} documentId={documentId} getPage={getPage} onLabelClick={handleLabelClick} onLabelDoubleClick={handleLabelDoubleClick} onLabelDragEnd={handleLabelDragEnd} />
             ))}
           </div>
         ) : (
           pagesToRender.map((pageNum) => (
-            <PDFPage key={pageNum} pageNumber={pageNum} documentId={documentId} getPage={getPage} onLabelClick={handleLabelClick} onLabelDragEnd={handleLabelDragEnd} />
+            <PDFPage key={pageNum} pageNumber={pageNum} documentId={documentId} getPage={getPage} onLabelClick={handleLabelClick} onLabelDoubleClick={handleLabelDoubleClick} onLabelDragEnd={handleLabelDragEnd} />
           ))
         )}
       </div>
@@ -443,6 +458,15 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
           position={popupPosition}
           onSave={handleCreateLabel}
           onCancel={handleCancelLabel}
+        />
+      )}
+
+      {/* 라벨 수정 모달 */}
+      {editingLabel && (
+        <LabelEditModal
+          label={editingLabel}
+          onSave={handleSaveLabel}
+          onClose={() => setEditingLabel(null)}
         />
       )}
     </div>

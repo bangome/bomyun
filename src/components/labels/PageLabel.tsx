@@ -4,16 +4,18 @@ import type { Label } from '../../types/database.types';
 interface PageLabelProps {
   label: Label;
   onClick?: (label: Label) => void;
+  onDoubleClick?: (label: Label) => void;
   onDragEnd?: (label: Label, newX: number, newY: number) => void;
 }
 
-export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
+export function PageLabel({ label, onClick, onDoubleClick, onDragEnd }: PageLabelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [currentPosition, setCurrentPosition] = useState({ x: label.position_x, y: label.position_y });
   const labelRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const hasDraggedRef = useRef(false);
+  const lastTapRef = useRef<number>(0);
 
   // 색상에서 60% 투명도 적용
   const hexToRgba = (hex: string, alpha: number) => {
@@ -156,6 +158,32 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
     onClick?.(label);
   }, [label, onClick]);
 
+  // 더블클릭 핸들러
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onDoubleClick?.(label);
+  }, [label, onDoubleClick]);
+
+  // 터치 종료 시 더블탭 감지
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    // 드래그 중이면 무시
+    if (hasDraggedRef.current) return;
+
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapRef.current;
+
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+      // 더블탭 감지
+      e.preventDefault();
+      e.stopPropagation();
+      onDoubleClick?.(label);
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  }, [label, onDoubleClick]);
+
   return (
     <div
       ref={labelRef}
@@ -171,7 +199,9 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
     >
       {/* 왼쪽 뾰족한 부분 */}
       <div
