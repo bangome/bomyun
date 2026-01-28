@@ -5,6 +5,7 @@ import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { useMousePan } from '../../hooks/useMousePan';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useTextSearch } from '../../hooks/useTextSearch';
+import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { PDFPage } from './PDFPage';
 import { WelcomeScreen } from './WelcomeScreen';
 import { LabelInputPopup } from '../labels/LabelInputPopup';
@@ -53,10 +54,21 @@ function GhostLabel({ x, y }: { x: number; y: number }) {
 
 interface PDFViewerProps {
   className?: string;
+  initialDocumentId?: string;
 }
 
-export function PDFViewer({ className = '' }: PDFViewerProps) {
+export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps) {
   const { document, documentId, numPages, isLoading, error, getPage, currentPage, goToPage } = usePDF();
+  const { openDocument } = useDocumentLibrary();
+  const [initialLoadAttempted, setInitialLoadAttempted] = useState(false);
+
+  // URL에서 문서 ID가 있으면 해당 문서 로드
+  useEffect(() => {
+    if (initialDocumentId && !initialLoadAttempted && !document) {
+      setInitialLoadAttempted(true);
+      openDocument(initialDocumentId);
+    }
+  }, [initialDocumentId, initialLoadAttempted, document, openDocument]);
   const {
     scale,
     setScale,

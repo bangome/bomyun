@@ -1,6 +1,8 @@
 import { useCallback, useEffect } from 'react';
 import { useStore } from '../store';
-import { getDocuments, createDocument, deleteDocument, getDocumentUrl } from '../api/documents';
+import { getDocuments, createDocument, deleteDocument, getDocumentUrl, getDocument } from '../api/documents';
+import { getLabels } from '../api/labels';
+import { getPageNames } from '../api/pageNames';
 import {
   getFolders,
   createFolder as apiCreateFolder,
@@ -11,6 +13,7 @@ import {
   getDocumentsInFolder,
 } from '../api/folders';
 import { useAuth } from './useAuth';
+import * as pdfjs from 'pdfjs-dist';
 import type { Document, Folder } from '../types/database.types';
 
 export function useDocumentLibrary() {
@@ -32,6 +35,13 @@ export function useDocumentLibrary() {
     setFolderPath,
     toggleLibrary,
     setLibraryOpen,
+    setDocument,
+    setLoading,
+    setError,
+    setLabels,
+    setPageNames,
+    setRotation,
+    setCurrentDocumentTitle,
   } = useStore();
 
   // 현재 폴더의 문서와 하위 폴더 로드
@@ -98,6 +108,55 @@ export function useDocumentLibrary() {
   const getDocUrl = useCallback(async (filePath: string): Promise<string> => {
     return getDocumentUrl(filePath);
   }, []);
+
+  // 문서 열기 (ID로)
+  const openDocument = useCallback(async (documentId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 문서 정보 조회
+      const doc = await getDocument(documentId);
+      if (!doc) {
+        throw new Error('문서를 찾을 수 없습니다.');
+      }
+
+      // PDF URL 가져오기
+      const url = await getDocumentUrl(doc.file_path);
+
+      // PDF 로드
+      const loadingTask = pdfjs.getDocument({
+        url,
+        cMapUrl: 'https://unpkg.com/pdfjs-dist/cmaps/',
+        cMapPacked: true,
+      });
+
+      const pdf = await loadingTask.promise;
+      setDocument(pdf, documentId, url);
+      setCurrentDocumentTitle(doc.title);
+
+      // 라벨, 페이지 이름 로드
+      const [labels, pageNames] = await Promise.all([
+        getLabels(documentId),
+        getPageNames(documentId),
+      ]);
+
+      setLabels(labels);
+      setPageNames(pageNames);
+
+      // 회전 정보 적용
+      if (doc.rotation) {
+        setRotation(doc.rotation);
+      } else {
+        setRotation(0);
+      }
+    } catch (err) {
+      console.error('문서 열기 실패:', err);
+      setError(err instanceof Error ? err : new Error('문서를 열 수 없습니다.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [setDocument, setLoading, setError, setLabels, setPageNames, setRotation, setCurrentDocumentTitle]);
 
   // 폴더 생성
   const createFolder = useCallback(
@@ -170,6 +229,7 @@ export function useDocumentLibrary() {
     uploadDocument,
     removeDocument,
     getDocUrl,
+    openDocument,
     createFolder,
     renameFolder,
     deleteFolder,

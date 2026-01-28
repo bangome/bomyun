@@ -195,6 +195,17 @@ export type Folder = Database['public']['Tables']['folders']['Row'];
 export type Label = Database['public']['Tables']['labels']['Row'];
 export type PageName = Database['public']['Tables']['page_names']['Row'];
 
+// 공유 링크 타입
+export interface SharedLink {
+  id: string;
+  document_id: string;
+  short_code: string;
+  created_by: string;
+  created_at: string;
+  expires_at: string | null;
+  view_count: number;
+}
+
 // 전역 라벨 검색 결과 타입
 export interface GlobalLabelSearchResult {
   id: string;

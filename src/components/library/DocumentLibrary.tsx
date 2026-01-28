@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Upload, FolderOpen, Search, FolderPlus, ChevronRight, Home, ArrowUp, FolderInput, Folder as FolderIcon } from 'lucide-react';
 import { useStore } from '../../store';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
@@ -10,6 +11,7 @@ import { updateDocumentPageCount, updateDocumentLastOpened } from '../../api/doc
 import type { Document, Folder } from '../../types/database.types';
 
 export function DocumentLibrary() {
+  const navigate = useNavigate();
   const { isLibraryOpen, setLibraryOpen } = useDocumentLibrary();
   const {
     documents,
@@ -295,11 +297,13 @@ export function DocumentLibrary() {
       }
 
       setLibraryOpen(false);
+      // URL 업데이트 (히스토리에 추가)
+      navigate(`/doc/${doc.id}`, { replace: true });
     } catch (error) {
       console.error('문서 열기 실패:', error);
       alert('문서를 열 수 없습니다.');
     }
-  }, [getDocUrl, loadDocument, setCurrentDocumentTitle, setLibraryOpen]);
+  }, [getDocUrl, loadDocument, setCurrentDocumentTitle, setLibraryOpen, navigate]);
 
   const handleDeleteDocument = useCallback(async (id: string) => {
     try {

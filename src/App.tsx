@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ComplexProvider } from './contexts/ComplexContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -9,6 +9,7 @@ import { SignupPage } from './pages/SignupPage';
 import { JoinPage } from './pages/JoinPage';
 import { ComplexSetupPage } from './pages/ComplexSetupPage';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { SharedViewer } from './pages/SharedViewer';
 import { AppLayout } from './components/layout/AppLayout';
 import { PDFViewer } from './components/pdf/PDFViewer';
 import { useComplex } from './hooks/useComplex';
@@ -25,6 +26,7 @@ const queryClient = new QueryClient({
 
 function MainApp() {
   const { hasComplex, isLoading } = useComplex();
+  const { documentId } = useParams<{ documentId?: string }>();
 
   if (isLoading) {
     return (
@@ -41,7 +43,7 @@ function MainApp() {
 
   return (
     <AppLayout>
-      <PDFViewer className="h-full" />
+      <PDFViewer className="h-full" initialDocumentId={documentId} />
     </AppLayout>
   );
 }
@@ -68,6 +70,19 @@ function App() {
                 <SuperAdminRoute>
                   <AdminDashboard />
                 </SuperAdminRoute>
+              }
+            />
+            {/* 공유 링크 (비인증 접근 가능) */}
+            <Route path="/s/:shortCode" element={<SharedViewer />} />
+            {/* 문서 뷰어 (인증 필요) */}
+            <Route
+              path="/doc/:documentId"
+              element={
+                <ProtectedRoute>
+                  <ComplexProvider>
+                    <MainApp />
+                  </ComplexProvider>
+                </ProtectedRoute>
               }
             />
             <Route

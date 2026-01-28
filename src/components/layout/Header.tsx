@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
-import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2 } from 'lucide-react';
+import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2 } from 'lucide-react';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useAuth } from '../../hooks/useAuth';
 import { useComplex } from '../../hooks/useComplex';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
+import { createSharedLink, getShareUrl } from '../../api/sharedLinks';
 import { TextSearch } from '../search/TextSearch';
 import { ZoomControls } from '../pdf/controls/ZoomControls';
 import { PageNavigation } from '../pdf/controls/PageNavigation';
@@ -14,7 +15,7 @@ import { MobilePageNavigation } from '../pdf/controls/MobilePageNavigation';
 
 export function Header() {
   const { toggleSidebar, viewMode, setViewMode, currentDocumentTitle } = useStore();
-  const { document } = usePDF();
+  const { document, documentId } = usePDF();
   const { isMobile, isTablet } = useResponsive();
   const { user, signOut } = useAuth();
   const { complex, isAdmin } = useComplex();
@@ -25,6 +26,9 @@ export function Header() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
 
   const handleCopyInviteCode = async () => {
     if (complex?.invite_code) {
@@ -40,6 +44,25 @@ export function Header() {
       await navigator.clipboard.writeText(link);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!documentId || documentId === 'local') return;
+
+    setIsSharing(true);
+    try {
+      const sharedLink = await createSharedLink(documentId);
+      const url = getShareUrl(sharedLink.short_code);
+      setShareUrl(url);
+      await navigator.clipboard.writeText(url);
+      setCopiedShareLink(true);
+      setTimeout(() => setCopiedShareLink(false), 3000);
+    } catch (error) {
+      console.error('공유 링크 생성 실패:', error);
+      alert('공유 링크를 생성할 수 없습니다.');
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -158,6 +181,33 @@ export function Header() {
               {currentDocumentTitle}
             </span>
           </>
+        )}
+
+        {/* 공유 버튼 */}
+        {document && documentId && documentId !== 'local' && (
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors ${
+              copiedShareLink
+                ? 'bg-green-100 text-green-700 border border-green-300'
+                : 'border border-gray-300 hover:bg-gray-50'
+            } disabled:opacity-50`}
+            title={shareUrl || '공유 링크 생성'}
+          >
+            {isSharing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : copiedShareLink ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Share2 className="w-4 h-4" />
+            )}
+            {!isMobile && (
+              <span className="text-sm">
+                {copiedShareLink ? '복사됨' : '공유'}
+              </span>
+            )}
+          </button>
         )}
 
         {/* 구분선 - 데스크톱 */}
