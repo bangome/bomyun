@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X, Settings } from 'lucide-react';
+import { isSuperAdmin } from '../../api/admin';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -12,10 +14,12 @@ import { MobileZoomControls } from '../pdf/controls/MobileZoomControls';
 import { MobilePageNavigation } from '../pdf/controls/MobilePageNavigation';
 
 export function Header() {
+  const navigate = useNavigate();
   const { toggleSidebar, viewMode, setViewMode, currentDocumentTitle } = useStore();
   const { document, documentId } = usePDF();
   const { isMobile, isTablet } = useResponsive();
   const { user, signOut } = useAuth();
+  const isSuperAdminUser = isSuperAdmin(user?.email);
   const { complex, isAdmin } = useComplex();
   const { toggleLibrary, uploadDocument } = useDocumentLibrary();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -363,6 +367,18 @@ export function Header() {
                 )}
 
                 <div className="py-1">
+                  {isSuperAdminUser && (
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/admin');
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Settings className="w-4 h-4" />
+                      관리자 대시보드
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setIsUserMenuOpen(false);
