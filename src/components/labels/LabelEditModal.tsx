@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import type { Label } from '../../types/database.types';
 
 const LABEL_COLORS = [
@@ -16,13 +16,16 @@ const LABEL_COLORS = [
 interface LabelEditModalProps {
   label: Label;
   onSave: (labelId: string, text: string, color: string) => Promise<void>;
+  onDelete: (labelId: string) => Promise<void>;
   onClose: () => void;
 }
 
-export function LabelEditModal({ label, onSave, onClose }: LabelEditModalProps) {
+export function LabelEditModal({ label, onSave, onDelete, onClose }: LabelEditModalProps) {
   const [text, setText] = useState(label.text);
   const [color, setColor] = useState(label.color);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +40,22 @@ export function LabelEditModal({ label, onSave, onClose }: LabelEditModalProps) 
       alert('라벨 수정에 실패했습니다.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(label.id);
+      onClose();
+    } catch (error) {
+      console.error('라벨 삭제 실패:', error);
+      alert('라벨 삭제에 실패했습니다.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -93,22 +112,56 @@ export function LabelEditModal({ label, onSave, onClose }: LabelEditModalProps) 
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={!text.trim() || isSaving}
-              className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 disabled:opacity-50"
-            >
-              {isSaving ? '저장 중...' : '저장'}
-            </button>
-          </div>
+          {showDeleteConfirm ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 text-center">
+                이 라벨을 삭제하시겠습니까?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 disabled:opacity-50"
+                >
+                  {isDeleting ? '삭제 중...' : '삭제'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50"
+                title="라벨 삭제"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={!text.trim() || isSaving}
+                className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 disabled:opacity-50"
+              >
+                {isSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </>

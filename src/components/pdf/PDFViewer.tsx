@@ -15,7 +15,7 @@ import { LabelEditModal } from '../labels/LabelEditModal';
 import { PageNavigation } from './controls/PageNavigation';
 import { ZoomControls } from './controls/ZoomControls';
 import { Loader2 } from 'lucide-react';
-import { createLabel, updateLabel } from '../../api/labels';
+import { createLabel, updateLabel, deleteLabel } from '../../api/labels';
 import type { Label } from '../../types/database.types';
 
 // 빈 라벨 프리뷰 컴포넌트 (마우스를 따라다님)
@@ -92,6 +92,7 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
     setPendingLabelPosition,
     addLabel,
     updateLabel: updateLabelInStore,
+    removeLabel,
   } = useStore();
   const { isMobile } = useResponsive();
   const { currentMatchIndex, matches } = useTextSearch();
@@ -259,6 +260,12 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
     const updated = await updateLabel(labelId, { text, color });
     updateLabelInStore(labelId, updated);
   }, [updateLabelInStore]);
+
+  // 라벨 삭제
+  const handleDeleteLabel = useCallback(async (labelId: string) => {
+    await deleteLabel(labelId);
+    removeLabel(labelId);
+  }, [removeLabel]);
 
   // 라벨 생성
   const handleCreateLabel = useCallback(async (text: string, color: string) => {
@@ -486,6 +493,7 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
         <LabelEditModal
           label={editingLabel}
           onSave={handleSaveLabel}
+          onDelete={handleDeleteLabel}
           onClose={() => setEditingLabel(null)}
         />
       )}
