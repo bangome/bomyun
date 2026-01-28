@@ -42,14 +42,15 @@ CREATE POLICY "Super admins can view all page_names" ON page_names
   FOR SELECT USING (is_super_admin());
 
 -- 관리자용: 사용자 프로필과 이메일을 함께 반환하는 함수
+DROP FUNCTION IF EXISTS get_user_profiles_with_email();
 CREATE OR REPLACE FUNCTION get_user_profiles_with_email()
 RETURNS TABLE (
   id UUID,
-  display_name TEXT,
-  email TEXT,
+  display_name VARCHAR(100),
+  email VARCHAR(255),
   complex_id UUID,
-  complex_name TEXT,
-  role TEXT,
+  complex_name VARCHAR(100),
+  role VARCHAR(20),
   created_at TIMESTAMPTZ
 ) AS $$
 BEGIN
