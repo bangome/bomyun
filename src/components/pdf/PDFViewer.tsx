@@ -84,8 +84,8 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
     viewMode,
     setPageOriginalSize,
     setContainerSize,
-    containerWidth,
-    pageOriginalWidth,
+    containerHeight,
+    pageOriginalHeight,
     isLabelAddMode,
     pendingLabelPosition,
     setLabelAddMode,
@@ -219,17 +219,17 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
     setPageLoaded(false);
   }, [document]);
 
-  // 모바일에서 화면에 맞게 스케일 자동 조정
+  // 모바일에서 화면 높이에 맞게 스케일 자동 조정
   useEffect(() => {
     if (!isMobile || !pageLoaded) return;
-    if (containerWidth <= 0 || pageOriginalWidth <= 0) return;
+    if (containerHeight <= 0 || pageOriginalHeight <= 0) return;
 
-    // 화면 너비에 맞는 스케일 계산
-    const fitScale = containerWidth / pageOriginalWidth;
-    // 최소 0.5, 최대 2 사이로 제한
-    const clampedScale = Math.max(0.5, Math.min(2, fitScale));
+    // 화면 높이에 맞는 스케일 계산
+    const fitScale = containerHeight / pageOriginalHeight;
+    // 최소 0.3, 최대 2 사이로 제한
+    const clampedScale = Math.max(0.3, Math.min(2, fitScale));
     setScale(clampedScale);
-  }, [isMobile, pageLoaded, containerWidth, pageOriginalWidth, setScale]);
+  }, [isMobile, pageLoaded, containerHeight, pageOriginalHeight, setScale]);
 
   // 라벨 클릭 시 해당 페이지로 이동
   const handleLabelClick = useCallback((label: Label) => {

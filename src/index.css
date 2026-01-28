@@ -107,6 +107,8 @@
 /* 기본 body 스타일 */
 html, body {
   margin: 0;
+  height: 100%;
+  overflow: hidden;
   background-color: #f9fafb;
   color: #111827;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -123,7 +125,8 @@ html, body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Safe area for mobile */
