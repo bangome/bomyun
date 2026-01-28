@@ -15,8 +15,6 @@ export function useRealtimePageNames(documentId: string | null) {
     if (subscribedRef.current) return;
     subscribedRef.current = true;
 
-    console.log('[Realtime] 페이지 이름 구독 시작:', documentId);
-
     // 실시간 구독 설정
     const channel = supabase
       .channel(`page_names:${documentId}`)
@@ -29,8 +27,6 @@ export function useRealtimePageNames(documentId: string | null) {
           filter: `document_id=eq.${documentId}`,
         },
         (payload) => {
-          console.log('[Realtime] 페이지 이름 변경 감지:', payload.eventType, payload);
-
           if (payload.eventType === 'INSERT') {
             const newPageName = payload.new as PageName;
             addPageName(newPageName);
@@ -43,12 +39,9 @@ export function useRealtimePageNames(documentId: string | null) {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[Realtime] 페이지 이름 구독 상태:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('[Realtime] 페이지 이름 구독 해제:', documentId);
       subscribedRef.current = false;
       supabase.removeChannel(channel);
     };
