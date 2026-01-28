@@ -1,14 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store';
 import { getPageNames } from '../api/pageNames';
 import type { PageName } from '../types/database.types';
 
 export function useRealtimePageNames(documentId: string | null) {
-  const { setPageNames, addPageName, updatePageName, removePageName, pageNames } = useStore();
+  const { setPageNames, addPageName, updatePageName, removePageName } = useStore();
+  const subscribedRef = useRef(false);
 
   useEffect(() => {
     if (!documentId || documentId === 'local') return;
+
+    // 이미 구독 중이면 스킵
+    if (subscribedRef.current) return;
+    subscribedRef.current = true;
+
+    console.log('[Realtime] 페이지 이름 구독 시작:', documentId);
 
     // 실시간 구독 설정
     const channel = supabase
@@ -16,51 +23,36 @@ export function useRealtimePageNames(documentId: string | null) {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'page_names',
           filter: `document_id=eq.${documentId}`,
         },
         (payload) => {
-          const newPageName = payload.new as PageName;
-          const exists = pageNames.some((p) => p.id === newPageName.id);
-          if (!exists) {
+          console.log('[Realtime] 페이지 이름 변경 감지:', payload.eventType, payload);
+
+          if (payload.eventType === 'INSERT') {
+            const newPageName = payload.new as PageName;
             addPageName(newPageName);
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedPageName = payload.new as PageName;
+            updatePageName(updatedPageName.id, updatedPageName);
+          } else if (payload.eventType === 'DELETE') {
+            const deletedPageName = payload.old as { id: string };
+            removePageName(deletedPageName.id);
           }
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'page_names',
-          filter: `document_id=eq.${documentId}`,
-        },
-        (payload) => {
-          const updatedPageName = payload.new as PageName;
-          updatePageName(updatedPageName.id, updatedPageName);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'page_names',
-          filter: `document_id=eq.${documentId}`,
-        },
-        (payload) => {
-          const deletedPageName = payload.old as { id: string };
-          removePageName(deletedPageName.id);
-        }
-      )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime] 페이지 이름 구독 상태:', status);
+      });
 
     return () => {
+      console.log('[Realtime] 페이지 이름 구독 해제:', documentId);
+      subscribedRef.current = false;
       supabase.removeChannel(channel);
     };
-  }, [documentId, addPageName, updatePageName, removePageName, pageNames]);
+  }, [documentId, addPageName, updatePageName, removePageName]);
 
   // 문서 변경 시 페이지 이름 다시 로드
   useEffect(() => {

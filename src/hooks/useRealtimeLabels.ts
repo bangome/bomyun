@@ -1,14 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store';
 import { getLabels } from '../api/labels';
 import type { Label } from '../types/database.types';
 
 export function useRealtimeLabels(documentId: string | null) {
-  const { setLabels, addLabel, updateLabel, removeLabel, labels } = useStore();
+  const { setLabels, addLabel, updateLabel, removeLabel } = useStore();
+  const subscribedRef = useRef(false);
 
   useEffect(() => {
     if (!documentId || documentId === 'local') return;
+
+    // 이미 구독 중이면 스킵
+    if (subscribedRef.current) return;
+    subscribedRef.current = true;
+
+    console.log('[Realtime] 라벨 구독 시작:', documentId);
 
     // 실시간 구독 설정
     const channel = supabase
@@ -16,53 +23,37 @@ export function useRealtimeLabels(documentId: string | null) {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'labels',
           filter: `document_id=eq.${documentId}`,
         },
         (payload) => {
-          const newLabel = payload.new as Label;
-          // 이미 존재하지 않는 경우에만 추가
-          const exists = labels.some((l) => l.id === newLabel.id);
-          if (!exists) {
+          console.log('[Realtime] 라벨 변경 감지:', payload.eventType, payload);
+
+          if (payload.eventType === 'INSERT') {
+            const newLabel = payload.new as Label;
             addLabel(newLabel);
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedLabel = payload.new as Label;
+            updateLabel(updatedLabel.id, updatedLabel);
+          } else if (payload.eventType === 'DELETE') {
+            const deletedLabel = payload.old as { id: string };
+            removeLabel(deletedLabel.id);
           }
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'labels',
-          filter: `document_id=eq.${documentId}`,
-        },
-        (payload) => {
-          const updatedLabel = payload.new as Label;
-          updateLabel(updatedLabel.id, updatedLabel);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'labels',
-          filter: `document_id=eq.${documentId}`,
-        },
-        (payload) => {
-          const deletedLabel = payload.old as { id: string };
-          removeLabel(deletedLabel.id);
-        }
-      )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime] 라벨 구독 상태:', status);
+      });
 
     // 컴포넌트 언마운트 시 구독 해제
     return () => {
+      console.log('[Realtime] 라벨 구독 해제:', documentId);
+      subscribedRef.current = false;
       supabase.removeChannel(channel);
     };
-  }, [documentId, addLabel, updateLabel, removeLabel, labels]);
+  }, [documentId, addLabel, updateLabel, removeLabel]);
 
   // 문서 변경 시 라벨 다시 로드
   useEffect(() => {
