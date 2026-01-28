@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X, Settings, UserCog } from 'lucide-react';
+import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X, Settings, UserCog, Search } from 'lucide-react';
 import { isSuperAdmin } from '../../api/admin';
 import { ProfileModal } from '../auth/ProfileModal';
 import { useStore } from '../../store';
@@ -34,6 +34,7 @@ export function Header() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const handleCopyInviteCode = async () => {
     if (complex?.invite_code) {
@@ -154,33 +155,49 @@ export function Header() {
           {!isMobile && <span className="text-sm">라이브러리</span>}
         </button>
 
-        {/* 파일 업로드 */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          multiple
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        <button
-          onClick={handleUploadClick}
-          disabled={isUploading}
-          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isUploading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Upload className="w-4 h-4" />
-          )}
-          {!isMobile && (
-            <span className="text-sm">
-              {isUploading
-                ? `${uploadProgress.current}/${uploadProgress.total}`
-                : '업로드'}
-            </span>
-          )}
-        </button>
+        {/* 파일 업로드 - 데스크톱만 */}
+        {!isMobile && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              onClick={handleUploadClick}
+              disabled={isUploading}
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isUploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              <span className="text-sm">
+                {isUploading
+                  ? `${uploadProgress.current}/${uploadProgress.total}`
+                  : '업로드'}
+              </span>
+            </button>
+          </>
+        )}
+
+        {/* 모바일 검색 버튼 */}
+        {isMobile && document && (
+          <button
+            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+            className={`p-1.5 rounded-lg transition-colors ${
+              isMobileSearchOpen
+                ? 'bg-primary-500 text-white'
+                : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        )}
 
 
         {/* 현재 문서 이름 - 데스크톱 */}
@@ -412,6 +429,13 @@ export function Header() {
       {document && isMobile && (
         <div className="flex items-center justify-center mt-2 pt-2 border-t border-gray-100">
           <MobilePageNavigation />
+        </div>
+      )}
+
+      {/* 모바일: 텍스트 검색 (세 번째 줄) */}
+      {document && isMobile && isMobileSearchOpen && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <TextSearch />
         </div>
       )}
 
