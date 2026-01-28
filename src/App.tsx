@@ -3,10 +3,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ComplexProvider } from './contexts/ComplexContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { SuperAdminRoute } from './components/auth/SuperAdminRoute';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { JoinPage } from './pages/JoinPage';
 import { ComplexSetupPage } from './pages/ComplexSetupPage';
+import { AdminDashboard } from './pages/AdminDashboard';
 import { AppLayout } from './components/layout/AppLayout';
 import { PDFViewer } from './components/pdf/PDFViewer';
 import { useComplex } from './hooks/useComplex';
@@ -58,6 +60,14 @@ function App() {
                 <ProtectedRoute>
                   <JoinPage />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <SuperAdminRoute>
+                  <AdminDashboard />
+                </SuperAdminRoute>
               }
             />
             <Route
