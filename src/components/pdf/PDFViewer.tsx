@@ -9,6 +9,8 @@ import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { PDFPage } from './PDFPage';
 import { WelcomeScreen } from './WelcomeScreen';
 import { LabelInputPopup } from '../labels/LabelInputPopup';
+import { PageNavigation } from './controls/PageNavigation';
+import { ZoomControls } from './controls/ZoomControls';
 import { Loader2 } from 'lucide-react';
 import { createLabel, updateLabel } from '../../api/labels';
 import type { Label } from '../../types/database.types';
@@ -401,10 +403,19 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
   }
 
   return (
-    <div ref={containerRef} className={`h-full bg-gray-200 relative ${className}`}>
+    <div ref={containerRef} className={`h-full bg-gray-200 relative flex flex-col ${className}`}>
+      {/* PC 툴바 - 캔버스 상단 */}
+      {!isMobile && (
+        <div className="flex-shrink-0 bg-white/95 backdrop-blur border-b border-gray-200 px-4 py-2 flex items-center justify-center gap-4">
+          <PageNavigation />
+          <div className="w-px h-6 bg-gray-300" />
+          <ZoomControls />
+        </div>
+      )}
+
       <div
         ref={setRefs}
-        className={`pdf-viewer-container h-full overflow-auto p-4 ${
+        className={`pdf-viewer-container flex-1 overflow-auto p-4 ${
           viewMode === 'continuous' ? 'space-y-4' : 'flex items-start justify-center'
         }`}
       >

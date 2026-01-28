@@ -8,8 +8,6 @@ import { useComplex } from '../../hooks/useComplex';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
 import { createSharedLink, getShareUrl } from '../../api/sharedLinks';
 import { TextSearch } from '../search/TextSearch';
-import { ZoomControls } from '../pdf/controls/ZoomControls';
-import { PageNavigation } from '../pdf/controls/PageNavigation';
 import { MobileZoomControls } from '../pdf/controls/MobileZoomControls';
 import { MobilePageNavigation } from '../pdf/controls/MobilePageNavigation';
 
@@ -209,18 +207,6 @@ export function Header() {
             )}
           </button>
         )}
-
-        {/* 구분선 - 데스크톱 */}
-        {document && !isMobile && <div className="w-px h-8 bg-gray-200" />}
-
-        {/* 페이지 네비게이션 - 데스크톱 */}
-        {document && !isMobile && <PageNavigation />}
-
-        {/* 구분선 - 데스크톱 */}
-        {document && !isMobile && <div className="w-px h-8 bg-gray-200" />}
-
-        {/* 줌 컨트롤 - 데스크톱 */}
-        {document && !isMobile && <ZoomControls />}
 
         {/* 스페이서 */}
         <div className="flex-1" />
