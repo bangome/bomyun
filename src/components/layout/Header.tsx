@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X, Settings } from 'lucide-react';
+import { Menu, Upload, FileText, FolderOpen, LogOut, User, ChevronDown, Building2, Copy, Check, Link, Loader2, Share2, X, Settings, UserCog } from 'lucide-react';
 import { isSuperAdmin } from '../../api/admin';
+import { ProfileModal } from '../auth/ProfileModal';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -20,7 +21,7 @@ export function Header() {
   const { isMobile, isTablet } = useResponsive();
   const { user, signOut } = useAuth();
   const isSuperAdminUser = isSuperAdmin(user?.email);
-  const { complex, isAdmin } = useComplex();
+  const { complex, isAdmin, profile, refresh: refreshProfile } = useComplex();
   const { toggleLibrary, uploadDocument } = useDocumentLibrary();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -32,6 +33,7 @@ export function Header() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleCopyInviteCode = async () => {
     if (complex?.invite_code) {
@@ -367,6 +369,16 @@ export function Header() {
                 )}
 
                 <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <UserCog className="w-4 h-4" />
+                    프로필 설정
+                  </button>
                   {isSuperAdminUser && (
                     <button
                       onClick={() => {
@@ -401,6 +413,16 @@ export function Header() {
         <div className="flex items-center justify-center mt-2 pt-2 border-t border-gray-100">
           <MobilePageNavigation />
         </div>
+      )}
+
+      {/* 프로필 설정 모달 */}
+      {isProfileModalOpen && user && (
+        <ProfileModal
+          user={user}
+          displayName={profile?.display_name || null}
+          onClose={() => setIsProfileModalOpen(false)}
+          onUpdate={refreshProfile}
+        />
       )}
     </header>
   );

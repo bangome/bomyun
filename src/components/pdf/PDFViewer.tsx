@@ -6,6 +6,8 @@ import { useMousePan } from '../../hooks/useMousePan';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useTextSearch } from '../../hooks/useTextSearch';
 import { useDocumentLibrary } from '../../hooks/useDocumentLibrary';
+import { useRealtimeLabels } from '../../hooks/useRealtimeLabels';
+import { useRealtimePageNames } from '../../hooks/useRealtimePageNames';
 import { PDFPage } from './PDFPage';
 import { WelcomeScreen } from './WelcomeScreen';
 import { LabelInputPopup } from '../labels/LabelInputPopup';
@@ -64,6 +66,10 @@ export function PDFViewer({ className = '', initialDocumentId }: PDFViewerProps)
   const { document, documentId, numPages, isLoading, error, getPage, currentPage, goToPage } = usePDF();
   const { openDocument } = useDocumentLibrary();
   const [initialLoadAttempted, setInitialLoadAttempted] = useState(false);
+
+  // 실시간 라벨 및 페이지 이름 동기화
+  useRealtimeLabels(documentId);
+  useRealtimePageNames(documentId);
 
   // URL에서 문서 ID가 있으면 해당 문서 로드
   useEffect(() => {
