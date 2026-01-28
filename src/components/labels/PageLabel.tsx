@@ -159,6 +159,7 @@ export function PageLabel({ label, onClick, onDragEnd }: PageLabelProps) {
   return (
     <div
       ref={labelRef}
+      data-draggable="true"
       className={`absolute flex items-center z-20 select-none ${
         isDragging ? 'cursor-grabbing opacity-80' : 'cursor-grab hover:scale-105'
       } transition-transform`}

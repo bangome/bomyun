@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Plus, Search, Tag, Edit2, Trash2 } from 'lucide-react';
 import { useStore } from '../../store';
 import { usePDF } from '../../hooks/usePDF';
+import { useResponsive } from '../../hooks/useResponsive';
 import { updateLabel, deleteLabel } from '../../api/labels';
 import type { Label } from '../../types/database.types';
 
@@ -88,6 +89,7 @@ function LabelEditForm({ label, onSave, onCancel }: LabelEditFormProps) {
 
 export function LabelManager() {
   const { goToPage } = usePDF();
+  const { isMobile } = useResponsive();
   const {
     labels,
     updateLabel: updateLabelStore,
@@ -95,7 +97,8 @@ export function LabelManager() {
     isLabelAddMode,
     pendingLabelPosition,
     setLabelAddMode,
-    setPendingLabelPosition
+    setPendingLabelPosition,
+    toggleSidebar,
   } = useStore();
 
   const [editingLabel, setEditingLabel] = useState<Label | null>(null);
@@ -111,7 +114,11 @@ export function LabelManager() {
     setLabelAddMode(true);
     setPendingLabelPosition(null);
     setEditingLabel(null);
-  }, [setLabelAddMode, setPendingLabelPosition]);
+    // 모바일에서는 사이드바를 닫아서 PDF를 볼 수 있게 함
+    if (isMobile) {
+      toggleSidebar();
+    }
+  }, [setLabelAddMode, setPendingLabelPosition, isMobile, toggleSidebar]);
 
   // 라벨 추가 모드 취소
   const handleCancelAddMode = useCallback(() => {

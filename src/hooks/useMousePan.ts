@@ -26,6 +26,12 @@ export function useMousePan({ enabled = true }: UseMousePanOptions = {}) {
       return;
     }
 
+    // 드래그 가능한 요소(라벨 등)에서는 패닝 비활성화
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-draggable="true"]')) {
+      return;
+    }
+
     if (!container) return;
 
     isPanningRef.current = true;
