@@ -235,6 +235,9 @@ export function AdminDashboard() {
                           사용자
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          이메일
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           단지
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -263,6 +266,9 @@ export function AdminDashboard() {
                                 {user.id.slice(0, 8)}...
                               </p>
                             </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {user.email || '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {user.complex_name || '-'}

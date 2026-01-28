@@ -19,6 +19,7 @@ export interface AdminStats {
 export interface UserActivity {
   id: string;
   display_name: string | null;
+  email: string | null;
   complex_id: string | null;
   complex_name: string | null;
   role: string;
@@ -69,19 +70,8 @@ export async function getAdminStats(): Promise<AdminStats> {
 
 // 사용자별 활동 통계
 export async function getUserActivities(): Promise<UserActivity[]> {
-  const { data: profiles, error } = await supabase
-    .from('user_profiles')
-    .select(`
-      id,
-      display_name,
-      complex_id,
-      role,
-      created_at,
-      complexes (
-        name
-      )
-    `)
-    .order('created_at', { ascending: false });
+  // 관리자용 함수 호출 (이메일 포함)
+  const { data: profiles, error } = await supabase.rpc('get_user_profiles_with_email');
 
   if (error) throw error;
 
@@ -96,8 +86,9 @@ export async function getUserActivities(): Promise<UserActivity[]> {
     activities.push({
       id: profile.id,
       display_name: profile.display_name,
+      email: profile.email,
       complex_id: profile.complex_id,
-      complex_name: (profile.complexes as any)?.name || null,
+      complex_name: profile.complex_name,
       role: profile.role,
       created_at: profile.created_at,
       document_count: docCount.count || 0,
