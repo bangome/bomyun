@@ -286,9 +286,9 @@ export function SharedViewer() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
       {/* 헤더 */}
-      <header className="bg-white border-b px-4 py-3 flex items-center gap-4">
+      <header className="flex-shrink-0 bg-white border-b px-4 py-3 flex items-center gap-4">
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="p-2 hover:bg-gray-100 rounded-lg lg:hidden"
