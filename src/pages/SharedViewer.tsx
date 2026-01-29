@@ -171,7 +171,7 @@ export function SharedViewer() {
         let pdfUrl: string | null = null;
 
         const { data: publicUrlData } = supabase.storage
-          .from('documents')
+          .from('pdfs')
           .getPublicUrl(result.document.file_path);
 
         if (publicUrlData?.publicUrl) {
@@ -189,7 +189,7 @@ export function SharedViewer() {
         // 2. Public URL 실패시 Signed URL 시도
         if (!pdfUrl) {
           const { data: signedUrlData } = await supabase.storage
-            .from('documents')
+            .from('pdfs')
             .createSignedUrl(result.document.file_path, 3600);
 
           if (signedUrlData?.signedUrl) {
