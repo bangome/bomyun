@@ -167,17 +167,43 @@ export function SharedViewer() {
         setPageNames(result.pageNames);
 
         // PDF 파일 URL 가져오기
-        const { data: urlData } = await supabase.storage
-          .from('documents')
-          .createSignedUrl(result.document.file_path, 3600);
+        // 1. Public URL 시도 (버킷이 public일 경우)
+        let pdfUrl: string | null = null;
 
-        if (!urlData?.signedUrl) {
-          throw new Error('PDF 파일을 불러올 수 없습니다.');
+        const { data: publicUrlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(result.document.file_path);
+
+        if (publicUrlData?.publicUrl) {
+          // Public URL로 접근 가능한지 확인
+          try {
+            const response = await fetch(publicUrlData.publicUrl, { method: 'HEAD' });
+            if (response.ok) {
+              pdfUrl = publicUrlData.publicUrl;
+            }
+          } catch {
+            // Public URL 실패, signed URL 시도
+          }
+        }
+
+        // 2. Public URL 실패시 Signed URL 시도
+        if (!pdfUrl) {
+          const { data: signedUrlData } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(result.document.file_path, 3600);
+
+          if (signedUrlData?.signedUrl) {
+            pdfUrl = signedUrlData.signedUrl;
+          }
+        }
+
+        if (!pdfUrl) {
+          throw new Error('PDF 파일을 불러올 수 없습니다. Storage 접근 권한을 확인하세요.');
         }
 
         // PDF 로드
         const loadingTask = pdfjs.getDocument({
-          url: urlData.signedUrl,
+          url: pdfUrl,
           cMapUrl: 'https://unpkg.com/pdfjs-dist/cmaps/',
           cMapPacked: true,
         });
