@@ -4,7 +4,13 @@ import * as pdfjs from 'pdfjs-dist';
 import { FileText, Loader2, AlertCircle, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Tag, Menu, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getSharedDocument } from '../api/sharedLinks';
+import { useMousePan } from '../hooks/useMousePan';
+import { usePinchZoom } from '../hooks/usePinchZoom';
 import type { Document, Label, PageName } from '../types/database.types';
+
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 4;
+const SCALE_STEP = 0.1;
 
 // PDF.js Worker 설정
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -146,6 +152,66 @@ export function SharedViewer() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 마우스 패닝
+  const mousePanRef = useMousePan({ enabled: true });
+
+  // 핀치 줌 (모바일)
+  const pinchZoomRef = usePinchZoom({
+    currentScale: scale,
+    onZoomChange: setScale,
+    minScale: MIN_SCALE,
+    maxScale: MAX_SCALE,
+  });
+
+  // ref 병합
+  const setRefs = useCallback(
+    (element: HTMLDivElement | null) => {
+      (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = element;
+      mousePanRef(element);
+      pinchZoomRef(element);
+    },
+    [mousePanRef, pinchZoomRef]
+  );
+
+  // Ctrl + 휠 줌
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
+        setScale((s) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, s + delta)));
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  // 키보드 줌 단축키
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setScale((s) => Math.min(MAX_SCALE, s + SCALE_STEP));
+        } else if (e.key === '-') {
+          e.preventDefault();
+          setScale((s) => Math.max(MIN_SCALE, s - SCALE_STEP));
+        } else if (e.key === '0') {
+          e.preventDefault();
+          setScale(1);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     async function loadSharedDocument() {
@@ -412,7 +478,7 @@ export function SharedViewer() {
         )}
 
         {/* PDF 뷰어 */}
-        <main ref={containerRef} className="flex-1 overflow-auto p-4 space-y-4">
+        <main ref={setRefs} className="flex-1 overflow-auto p-4 space-y-4">
           {pdfDocument &&
             pagesToRender.map((pageNum) => (
               <SharedPage
